@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Unrelated workspace artifacts
+docs/master-model-design-as-built-workflow.svg
+docs/master-model-design-as-built-workflow-4k.png

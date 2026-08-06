@@ -1,0 +1,79 @@
+{
+  "name": "lodex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A native Linux workspace for ChatGPT and Codex workflows.",
+  "homepage": "https://github.com/wwdreamb/Lodex",
+  "desktopName": "lodex.desktop",
+  "main": "dist-electron/main.js",
+  "author": {
+    "name": "wwdreamb",
+    "email": "wwdreamb@users.noreply.github.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json --watch\" \"wait-on tcp:5173 file:dist-electron/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build": "npm run typecheck && vite build && tsc -p tsconfig.electron.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb",
+    "generate:icon": "node scripts/generate-icon.cjs",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "@openai/codex": "0.146.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
+    "lucide-react": "1.28.0",
+    "monaco-editor": "0.56.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "concurrently": "10.0.4",
+    "cross-env": "10.1.0",
+    "electron": "43.3.0",
+    "electron-builder": "26.15.3",
+    "sharp": "0.35.3",
+    "typescript": "7.0.2",
+    "vite": "8.2.0",
+    "wait-on": "9.0.1"
+  },
+  "overrides": {
+    "dompurify": "3.4.13"
+  },
+  "build": {
+    "appId": "com.lodex.desktop",
+    "productName": "Lodex",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "asar": true,
+    "icon": "build/icon.png",
+    "asarUnpack": [
+      "node_modules/@openai/codex/**/*",
+      "node_modules/@openai/codex-*/**/*"
+    ],
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "syncDesktopName": true,
+      "artifactName": "Lodex-${version}-${arch}.${ext}"
+    }
+  }
+}
