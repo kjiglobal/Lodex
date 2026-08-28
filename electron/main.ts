@@ -20,8 +20,18 @@ const rendererCodexMethods = new Set([
   "thread/list",
   "thread/start",
   "thread/resume",
+  "thread/name/set",
+  "thread/archive",
+  "thread/goal/set",
+  "thread/goal/get",
+  "thread/goal/clear",
+  "thread/compact/start",
   "turn/start",
   "turn/interrupt",
+  "account/rateLimits/read",
+  "account/usage/read",
+  "skills/list",
+  "app/list",
   "command/exec",
   "command/exec/write",
   "command/exec/resize",
@@ -101,11 +111,15 @@ function registerIpc(): void {
     if (typeof method !== "string" || !rendererCodexMethods.has(method)) throw new Error("Unsupported Codex method.");
     const value = params && typeof params === "object" ? { ...(params as Record<string, unknown>) } : {};
     if (method === "thread/start") {
-      value.cwd = workspace.current() || undefined;
-      value.sandbox = "workspace-write";
+      const surface = value.surface;
+      value.cwd = surface === "chat" ? undefined : workspace.current() || undefined;
+      value.sandbox = surface === "chat" ? "read-only" : "workspace-write";
+      delete value.surface;
     }
     if (method === "turn/start") {
-      value.cwd = workspace.current() || undefined;
+      const surface = value.surface;
+      value.cwd = surface === "chat" ? undefined : workspace.current() || undefined;
+      delete value.surface;
       delete value.sandboxPolicy;
     }
     if (method.startsWith("command/exec")) {

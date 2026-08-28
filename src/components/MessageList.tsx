@@ -1,11 +1,14 @@
 import {
   Check,
+  CheckCheck,
   ChevronDown,
   ChevronRight,
   CircleEllipsis,
+  Copy,
   FileCode2,
   Globe2,
   Image as ImageIcon,
+  Sparkles,
   TerminalSquare,
   Wrench,
 } from "lucide-react";
@@ -92,6 +95,14 @@ function ToolItem({ item }: { item: ThreadItem }) {
 }
 
 function MessageItem({ item }: { item: ThreadItem }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
   if (item.type === "userMessage") {
     const content = Array.isArray(item.content) ? (item.content as UserInput[]) : [];
     const images = content.filter((input) => input.type === "localImage" || input.type === "image");
@@ -114,7 +125,14 @@ function MessageItem({ item }: { item: ThreadItem }) {
     return (
       <div className={`message assistant-message ${item.phase === "commentary" ? "commentary-message" : ""}`}>
         <div className="assistant-mark">L</div>
-        <div className="message-body"><Markdown>{item.text || ""}</Markdown></div>
+        <div className="message-body">
+          <Markdown>{item.text || ""}</Markdown>
+          {item.text && item.phase !== "commentary" && (
+            <div className="message-actions">
+              <button onClick={() => void copy(item.text || "")} title="Copy response">{copied ? <CheckCheck size={14} /> : <Copy size={14} />}<span>{copied ? "Copied" : "Copy"}</span></button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -122,6 +140,23 @@ function MessageItem({ item }: { item: ThreadItem }) {
   if (item.type === "reasoning") {
     const summary = item.summary?.join("\n") || "Thinking";
     return <div className="reasoning-line"><CircleEllipsis size={15} /><span>{summary}</span></div>;
+  }
+
+  if (item.type === "plan") {
+    return <div className="plan-message"><CircleEllipsis size={15} /><div><strong>Plan</strong><Markdown>{item.text || ""}</Markdown></div></div>;
+  }
+
+  if (item.type === "contextCompaction") {
+    return <div className="system-line"><Sparkles size={14} /><span>Conversation context compacted</span></div>;
+  }
+
+  if (item.type === "enteredReviewMode") {
+    return <div className="system-line"><Check size={14} /><span>Review started</span></div>;
+  }
+
+  if (item.type === "exitedReviewMode") {
+    const review = typeof item.review === "string" ? item.review : "Review completed";
+    return <div className="message assistant-message"><div className="assistant-mark">L</div><div className="message-body"><Markdown>{review}</Markdown></div></div>;
   }
 
   if (item.type === "imageGeneration" && item.savedPath) {
@@ -152,7 +187,7 @@ export function MessageList({ items, loading, running }: Props) {
   }
 
   return (
-    <div className="message-list">
+    <div className="message-list" aria-live="polite">
       {items.map((item) => <MessageItem item={item} key={item.id} />)}
       {running && !items.some((item) => item.type === "agentMessage" && !item.text) && (
         <div className="working-indicator"><span /><span /><span /></div>

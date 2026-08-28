@@ -1,4 +1,4 @@
-import { ArrowUp, ImagePlus, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, ImagePlus, Plus, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AttachedImage } from "../types";
 
@@ -8,9 +8,10 @@ type Props = {
   workspace: string | null;
   onSend(text: string, images: AttachedImage[]): Promise<void>;
   onStop(): void;
+  onOpenTools(): void;
 };
 
-export function Composer({ disabled, running, workspace, onSend, onStop }: Props) {
+export function Composer({ disabled, running, workspace, onSend, onStop, onOpenTools }: Props) {
   const [value, setValue] = useState("");
   const [images, setImages] = useState<AttachedImage[]>([]);
   const [sending, setSending] = useState(false);
@@ -78,11 +79,11 @@ export function Composer({ disabled, running, workspace, onSend, onStop }: Props
         />
         <div className="composer-actions">
           <div>
+            <button className="icon-button composer-add" onClick={onOpenTools} disabled={disabled} title="Apps and skills">
+              <Plus size={19} />
+            </button>
             <button className="icon-button" onClick={attachImages} disabled={disabled} title="Attach images">
               <ImagePlus size={18} />
-            </button>
-            <button className="icon-button muted-action" disabled title="Attach files (use the project browser in v1)">
-              <Paperclip size={18} />
             </button>
           </div>
           {running ? (

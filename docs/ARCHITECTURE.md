@@ -24,13 +24,22 @@ Lodex starts `account/login/start` with the managed `chatgpt` login type and ope
 
 The renderer uses these stable surfaces:
 
-- `account/read`, managed ChatGPT login, and logout
+- `account/read`, managed ChatGPT login/logout, account usage, and rate limits
 - `model/list`
-- `thread/start`, `thread/resume`, and `thread/list`
-- `turn/start`, streaming item notifications, and `turn/interrupt`
+- `thread/start`, `thread/resume`, `thread/list`, rename, and archive
+- thread goals and context compaction
+- `turn/start`, streaming item and plan notifications, and `turn/interrupt`
+- app and skill discovery
 - `command/exec` PTY streaming for the user-controlled terminal
 
 Models are discovered at runtime instead of being maintained as a stale hard-coded registry.
+
+## Product surfaces
+
+- **Chat** starts a conversation without assigning a project directory and uses a read-only sandbox.
+- **Work** adds goal and activity affordances while retaining the selected project as optional context.
+- **Build** binds turns to the selected project and exposes files, Git, and the terminal.
+- Chat pins are a local Lodex preference because the current app-server thread metadata does not expose a pin field. Thread names, history, goals, and archive state remain server-managed.
 
 ## Filesystem and process boundaries
 
@@ -38,7 +47,7 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 - Directory symlinks are not traversed by the file tree.
 - The local-image protocol accepts supported image extensions only and limits access to the project or images explicitly chosen by the user.
 - Generic renderer-to-app-server access is denied. Allowed methods are enumerated and sensitive parameters are normalized in the main process.
-- Agent turns are fixed to the selected project with the `workspace-write` sandbox.
+- Chat turns use the `read-only` sandbox; Work and Build turns use `workspace-write` and the selected project when one is available.
 - The terminal is a user-controlled login shell. Its start command and session IDs are validated by the main process.
 - External links are opened by the operating system rather than navigating the Lodex renderer.
 

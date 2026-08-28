@@ -64,8 +64,77 @@ export type Thread = {
   cwd: string;
   createdAt: number;
   updatedAt: number;
-  status?: unknown;
+  isPinned?: boolean;
+  status?: ThreadStatus;
   turns?: Turn[];
+};
+
+export type ThreadStatus = {
+  type: "notLoaded" | "idle" | "active" | "systemError" | string;
+  activeFlags?: string[];
+  message?: string | null;
+};
+
+export type PlanStep = {
+  step: string;
+  status: "pending" | "inProgress" | "completed";
+};
+
+export type ThreadGoal = {
+  threadId: string;
+  objective: string;
+  status: "active" | "complete" | "blocked" | string;
+  tokenBudget?: number | null;
+  tokensUsed?: number | null;
+  timeUsedSeconds?: number | null;
+};
+
+export type RateLimitWindow = {
+  usedPercent: number;
+  windowDurationMins?: number | null;
+  resetsAt?: number | null;
+};
+
+export type RateLimits = {
+  limitId?: string | null;
+  limitName?: string | null;
+  planType?: string | null;
+  primary?: RateLimitWindow | null;
+  secondary?: RateLimitWindow | null;
+  rateLimitReachedType?: string | null;
+};
+
+export type AccountUsage = {
+  summary?: {
+    lifetimeTokens?: number | null;
+    peakDailyTokens?: number | null;
+    longestRunningTurnSec?: number | null;
+    currentStreakDays?: number | null;
+    longestStreakDays?: number | null;
+  } | null;
+  dailyUsageBuckets?: Array<{ startDate: string; tokens: number }> | null;
+};
+
+export type Skill = {
+  name: string;
+  description?: string;
+  path: string;
+  enabled: boolean;
+  interface?: {
+    displayName?: string;
+    shortDescription?: string;
+  } | null;
+};
+
+export type ChatApp = {
+  id: string;
+  name: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  logoUrlDark?: string | null;
+  installUrl?: string | null;
+  isAccessible: boolean;
+  isEnabled: boolean;
 };
 
 export type FileNode = {
