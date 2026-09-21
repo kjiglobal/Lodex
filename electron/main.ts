@@ -83,6 +83,9 @@ function createWindow(): void {
     mainWindow.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
         try {
+          // Exercise the packaged runtime as well as the rendered window.
+          await codex.start();
+          await codex.request("account/read", { refreshToken: false });
           const snapshot = await mainWindow?.webContents.executeJavaScript(`({
             title: document.title,
             hasRoot: Boolean(document.querySelector('#root')),
@@ -90,6 +93,9 @@ function createWindow(): void {
             hasSidebar: Boolean(document.querySelector('.sidebar')),
             text: document.body.innerText.slice(0, 500)
           })`);
+          if (!snapshot?.hasRoot || !snapshot.hasComposer || !snapshot.hasSidebar) {
+            throw new Error("The Lodex window did not render its main controls.");
+          }
           const screenshotPath = process.env.LODEX_SMOKE_SCREENSHOT;
           if (screenshotPath && mainWindow) {
             const image = await mainWindow.webContents.capturePage();

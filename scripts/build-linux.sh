@@ -5,6 +5,14 @@ set -euo pipefail
 # desktop packages must remain readable and traversable by regular users.
 umask 022
 
+cd "$(dirname "$0")/.."
+
+case "${1:-all}" in
+  all) targets=(AppImage deb) ;;
+  deb) targets=(deb) ;;
+  *) echo "Usage: $0 [all|deb]"; exit 1 ;;
+esac
+
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "This script must run on Linux so npm installs the Linux Codex runtime."
   exit 1
@@ -22,7 +30,7 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
 esac
 
-npm ci
+npm ci --include=optional
 npm run generate:icon
 
 if [[ ! -d "node_modules/@openai/codex-linux-${codex_arch}" ]]; then
@@ -37,7 +45,8 @@ chmod -R a+rX \
   "node_modules/@openai/codex" \
   "node_modules/@openai/codex-linux-${codex_arch}"
 
-npm run dist:linux
+npm run build
+npx --no-install electron-builder --linux "${targets[@]}" --publish never
 npm audit --audit-level=high
 
 echo
