@@ -8,6 +8,7 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Streaming multi-turn conversations with persisted Codex task history.
 - Current model and reasoning-effort selection discovered from the signed-in account.
 - Chat, Work, and Build modes for conversation-only, goal-oriented, and project workflows.
+- ChatGPT/Codex product navigation that maps Chat and Work to ChatGPT-style workflows and project work to Codex.
 - Searchable chat history with rename, local pinning, archive, active-state indicators, and response copy actions.
 - Durable goals, live plans, task activity, token/context feedback, and manual conversation compaction.
 - ChatGPT apps and local/project skills discovery from the current Codex runtime.
@@ -18,6 +19,7 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Local image attachments and generated-image rendering.
 - Command, file-change, permission, and user-input approval surfaces.
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
+- Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Alt+N` opens a quick chat, and `Ctrl/Cmd+Shift+O` opens a project.
 
 ## Install on Ubuntu (no terminal needed)
 
@@ -75,7 +77,7 @@ The **Ubuntu installer** GitHub Actions workflow builds on Ubuntu 24.04, install
 
 1. Select **Sign in with ChatGPT**.
 2. Complete the official browser flow with the same ChatGPT credentials you normally use.
-3. Choose **Chat** for conversation, **Work** for longer goals, or **Build** for project work.
+3. Choose **ChatGPT** for Chat or Work, or choose **Codex** for project work.
 4. In Build mode, select **Open project** and choose a local repository.
 5. Start a task. Keep the default **Ask** approval policy until you are comfortable with the commands and edits being proposed.
 

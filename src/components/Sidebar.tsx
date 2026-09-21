@@ -1,6 +1,7 @@
 import {
   Archive,
   Blocks,
+  Bot,
   ChevronDown,
   FolderGit2,
   LogIn,
@@ -13,10 +14,11 @@ import {
   Pin,
   PinOff,
   Search,
+  Settings2,
   Sun,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { Account, AccountUsage, RateLimits, Thread } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Account, AccountUsage, RateLimits, SurfaceMode, Thread } from "../types";
 
 type Props = {
   threads: Thread[];
@@ -27,6 +29,7 @@ type Props = {
   accountUsage: AccountUsage | null;
   collapsed: boolean;
   theme: "light" | "dark";
+  surfaceMode: SurfaceMode;
   onToggle(): void;
   onToggleTheme(): void;
   onNew(): void;
@@ -38,6 +41,8 @@ type Props = {
   onOpenTools(): void;
   onSignIn(): void;
   onLogout(): void;
+  onSwitchSurface(surface: SurfaceMode): void;
+  onOpenSettings(): void;
 };
 
 const shortPath = (value: string | null) => {
@@ -98,6 +103,7 @@ export function Sidebar({
   accountUsage,
   collapsed,
   theme,
+  surfaceMode,
   onToggle,
   onToggleTheme,
   onNew,
@@ -109,9 +115,19 @@ export function Sidebar({
   onOpenTools,
   onSignIn,
   onLogout,
+  onSwitchSurface,
+  onOpenSettings,
 }: Props) {
   const [query, setQuery] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const isCodex = surfaceMode === "build";
+
+  useEffect(() => {
+    const focusSearch = () => searchInput.current?.focus();
+    window.addEventListener("lodex:focus-search", focusSearch);
+    return () => window.removeEventListener("lodex:focus-search", focusSearch);
+  }, []);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return threads;
@@ -158,16 +174,21 @@ export function Sidebar({
         <button className="icon-button sidebar-close" onClick={onToggle} title="Close sidebar"><PanelLeftClose size={18} /></button>
       </div>
 
+      <div className="product-switcher" aria-label="Product">
+        <button className={!isCodex ? "active" : ""} onClick={() => onSwitchSurface("chat")}><MessageSquare size={15} />ChatGPT</button>
+        <button className={isCodex ? "active" : ""} onClick={() => onSwitchSurface("build")}><Bot size={15} />Codex</button>
+      </div>
+
       <div className="sidebar-primary-actions">
-        <button className="new-task-button" onClick={onNew}><PenLine size={17} /><span>New chat</span></button>
-        <label className="sidebar-search-field"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search chats" /></label>
+        <button className="new-task-button" onClick={onNew}><PenLine size={17} /><span>{isCodex ? "New task" : "New chat"}</span><kbd>Ctrl N</kbd></button>
+        <label className="sidebar-search-field"><Search size={15} /><input ref={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search chats" /><kbd>Ctrl K</kbd></label>
       </div>
 
       <div className="sidebar-nav">
         <button className="workspace-button" onClick={onOpenWorkspace} title={workspace ?? undefined}>
-          <FolderGit2 size={16} /><span>{shortPath(workspace)}</span><ChevronDown size={15} />
+          <FolderGit2 size={16} /><span>{workspace ? shortPath(workspace) : "Projects"}</span><ChevronDown size={15} />
         </button>
-        <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Tools</span></button>
+        <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Plugins</span></button>
       </div>
 
       <nav className="thread-list" aria-label="Chats">
@@ -180,6 +201,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer-actions">
+        <button className="theme-button" onClick={onOpenSettings}><Settings2 size={15} /><span>Settings</span></button>
         <button className="theme-button" onClick={onToggleTheme}>{theme === "light" ? <Moon size={15} /> : <Sun size={15} />}<span>{theme === "light" ? "Dark mode" : "Light mode"}</span></button>
       </div>
 

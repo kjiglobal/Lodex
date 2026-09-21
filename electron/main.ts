@@ -22,6 +22,7 @@ const rendererCodexMethods = new Set([
   "thread/resume",
   "thread/name/set",
   "thread/archive",
+  "thread/unarchive",
   "thread/goal/set",
   "thread/goal/get",
   "thread/goal/clear",

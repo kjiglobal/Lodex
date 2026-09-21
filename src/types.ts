@@ -158,6 +158,8 @@ export type GitStatus = {
 
 export type AttachedImage = { path: string; name: string };
 
+export type SurfaceMode = "chat" | "work" | "build";
+
 export type CodexEvent = {
   id?: number | string;
   method?: string;

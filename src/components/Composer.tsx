@@ -1,17 +1,18 @@
-import { ArrowUp, ImagePlus, Plus, Square, X } from "lucide-react";
+import { ArrowUp, FolderGit2, ImagePlus, Plus, Sparkles, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { AttachedImage } from "../types";
+import type { AttachedImage, SurfaceMode } from "../types";
 
 type Props = {
   disabled: boolean;
   running: boolean;
   workspace: string | null;
+  surfaceMode: SurfaceMode;
   onSend(text: string, images: AttachedImage[]): Promise<void>;
   onStop(): void;
   onOpenTools(): void;
 };
 
-export function Composer({ disabled, running, workspace, onSend, onStop, onOpenTools }: Props) {
+export function Composer({ disabled, running, workspace, surfaceMode, onSend, onStop, onOpenTools }: Props) {
   const [value, setValue] = useState("");
   const [images, setImages] = useState<AttachedImage[]>([]);
   const [sending, setSending] = useState(false);
@@ -85,6 +86,10 @@ export function Composer({ disabled, running, workspace, onSend, onStop, onOpenT
             <button className="icon-button" onClick={attachImages} disabled={disabled} title="Attach images">
               <ImagePlus size={18} />
             </button>
+            <span className="composer-context">
+              {surfaceMode === "build" ? <FolderGit2 size={13} /> : <Sparkles size={13} />}
+              {surfaceMode === "build" ? (workspace?.replaceAll("\\", "/").split("/").filter(Boolean).at(-1) || "Choose project") : surfaceMode === "work" ? "Work" : "Chat"}
+            </span>
           </div>
           {running ? (
             <button className="send-button stop" onClick={onStop} title="Stop">

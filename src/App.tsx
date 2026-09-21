@@ -20,6 +20,7 @@ import { ActivityPanel } from "./components/ActivityPanel";
 import { Composer } from "./components/Composer";
 import { GoalDialog } from "./components/GoalDialog";
 import { MessageList } from "./components/MessageList";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { Sidebar } from "./components/Sidebar";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ToolsPanel } from "./components/ToolsPanel";
@@ -37,6 +38,7 @@ import type {
   PlanStep,
   RateLimits,
   Skill,
+  SurfaceMode,
   Thread,
   ThreadGoal,
   ThreadItem,
@@ -70,12 +72,15 @@ const withLocalPins = (threads: Thread[]) => {
   return threads.map((thread) => ({ ...thread, isPinned: pinned.has(thread.id) }));
 };
 
-type SurfaceMode = "chat" | "work" | "build";
-
 const initialTheme = (): "light" | "dark" => {
   const stored = window.localStorage.getItem("lodex-theme");
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+const initialSurfaceMode = (): SurfaceMode => {
+  const stored = window.localStorage.getItem("lodex-surface");
+  return stored === "chat" || stored === "work" || stored === "build" ? stored : "build";
 };
 
 export default function App() {
@@ -84,7 +89,7 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState("");
   const [effort, setEffort] = useState("");
   const [approvalPolicy, setApprovalPolicy] = useState("on-request");
-  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>("build");
+  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>(initialSurfaceMode);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
@@ -109,6 +114,9 @@ export default function App() {
   const [activityVisible, setActivityVisible] = useState(false);
   const [toolsVisible, setToolsVisible] = useState(false);
   const [goalDialogVisible, setGoalDialogVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [archivedThreads, setArchivedThreads] = useState<Thread[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(initialTheme);
   const [requests, setRequests] = useState<PendingServerRequest[]>([]);
   const [runtimeState, setRuntimeState] = useState("starting");
@@ -123,6 +131,10 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("lodex-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem("lodex-surface", surfaceMode);
+  }, [surfaceMode]);
 
   const upsertItem = useCallback((nextItem: ThreadItem) => {
     setItems((current) => {
@@ -166,6 +178,24 @@ export default function App() {
       sourceKinds: ["cli", "vscode", "appServer"],
     });
     setThreads(withLocalPins(result.data || []));
+  }, []);
+
+  const refreshArchivedThreads = useCallback(async () => {
+    setArchivedLoading(true);
+    try {
+      const result = await window.lodex.codex.request<{ data: Thread[] }>("thread/list", {
+        limit: 100,
+        sortKey: "updated_at",
+        sortDirection: "desc",
+        archived: true,
+        sourceKinds: ["cli", "vscode", "appServer"],
+      });
+      setArchivedThreads(result.data || []);
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : "Unable to load archived chats.");
+    } finally {
+      setArchivedLoading(false);
+    }
   }, []);
 
   const refreshWorkspace = useCallback(async () => {
@@ -274,8 +304,9 @@ export default function App() {
         if (next) setApps(next);
       }
 
-      if (method === "thread/name/updated" || method === "thread/archived") {
+      if (method === "thread/name/updated" || method === "thread/archived" || method === "thread/unarchived") {
         void refreshThreads().catch(() => undefined);
+        if (settingsVisible) void refreshArchivedThreads().catch(() => undefined);
       }
 
       if (method === "thread/status/changed") {
@@ -334,7 +365,7 @@ export default function App() {
       unsubscribeStatus();
       unsubscribeEvents();
     };
-  }, [refreshAccount, refreshAccountInsights, refreshModels, refreshThreads, refreshWorkspace, upsertItem]);
+  }, [refreshAccount, refreshAccountInsights, refreshArchivedThreads, refreshModels, refreshThreads, refreshWorkspace, settingsVisible, upsertItem]);
 
   const openWorkspace = async () => {
     try {
@@ -392,6 +423,29 @@ export default function App() {
     if (surface === "build" && workspace) setWorkspaceVisible(true);
     newTask();
   };
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const modifier = event.ctrlKey || event.metaKey;
+      if (!modifier) return;
+      if (event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (sidebarCollapsed) setSidebarCollapsed(false);
+        window.setTimeout(() => window.dispatchEvent(new Event("lodex:focus-search")), 0);
+      } else if (event.key.toLowerCase() === "n" && event.altKey) {
+        event.preventDefault();
+        switchSurface("chat");
+      } else if (event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        newTask();
+      } else if (event.key.toLowerCase() === "o" && event.shiftKey) {
+        event.preventDefault();
+        void openWorkspace();
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  });
 
   const send = async (text: string, images: AttachedImage[]) => {
     if (!accountState.account && accountState.requiresOpenaiAuth) {
@@ -487,6 +541,16 @@ export default function App() {
     }
   };
 
+  const restoreThread = async (thread: Thread) => {
+    try {
+      await window.lodex.codex.request("thread/unarchive", { threadId: thread.id });
+      setArchivedThreads((current) => current.filter((entry) => entry.id !== thread.id));
+      await refreshThreads();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unable to restore that chat.");
+    }
+  };
+
   const saveGoal = async (objective: string, tokenBudget?: number) => {
     if (!activeThread) return;
     try {
@@ -532,6 +596,14 @@ export default function App() {
     void refreshTools();
   };
 
+  const openSettings = () => {
+    setActivityVisible(false);
+    setWorkspaceVisible(false);
+    setToolsVisible(false);
+    setSettingsVisible(true);
+    void refreshArchivedThreads();
+  };
+
   const currentModel = models.find((model) => model.id === selectedModel || model.model === selectedModel);
   const efforts = currentModel?.supportedReasoningEfforts || [];
   const empty = !items.length && !loadingThread;
@@ -553,6 +625,7 @@ export default function App() {
         accountUsage={accountUsage}
         collapsed={sidebarCollapsed}
         theme={theme}
+        surfaceMode={surfaceMode}
         onToggle={() => setSidebarCollapsed((value) => !value)}
         onToggleTheme={() => setTheme((value) => value === "light" ? "dark" : "light")}
         onNew={newTask}
@@ -564,6 +637,8 @@ export default function App() {
         onOpenTools={openTools}
         onSignIn={() => void signIn()}
         onLogout={() => void logout()}
+        onSwitchSurface={switchSurface}
+        onOpenSettings={openSettings}
       />
 
       <main className="main-column">
@@ -601,11 +676,15 @@ export default function App() {
               <ChevronDown size={13} />
             </label>
           </div>
-          <nav className="surface-switcher" aria-label="Lodex mode">
-            {(["chat", "work", "build"] as SurfaceMode[]).map((surface) => (
-              <button className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
-            ))}
-          </nav>
+          {surfaceMode === "build" ? (
+            <div className="product-heading"><Blocks size={15} /><span>Codex</span></div>
+          ) : (
+            <nav className="surface-switcher" aria-label="ChatGPT mode">
+              {(["chat", "work"] as SurfaceMode[]).map((surface) => (
+                <button className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
+              ))}
+            </nav>
+          )}
           <div className="topbar-controls">
             <span className={`runtime-dot ${runtimeState}`} title={`Codex runtime: ${runtimeState}`} />
             <button className={`topbar-action ${activityVisible ? "active" : ""}`} onClick={() => {
@@ -661,7 +740,7 @@ export default function App() {
           ) : (
             <MessageList items={items} loading={loadingThread} running={running} />
           )}
-          <Composer disabled={runtimeState === "error" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} onSend={send} onStop={stop} onOpenTools={openTools} />
+          <Composer disabled={runtimeState === "error" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} surfaceMode={surfaceMode} onSend={send} onStop={stop} onOpenTools={openTools} />
         </div>
 
         {terminalVisible && <TerminalPanel workspace={workspace} onClose={() => setTerminalVisible(false)} />}
@@ -680,6 +759,17 @@ export default function App() {
       />
 
       <ToolsPanel visible={toolsVisible} loading={toolsLoading} apps={apps} skills={skills} onClose={() => setToolsVisible(false)} onRefresh={() => void refreshTools()} />
+
+      <SettingsPanel
+        visible={settingsVisible}
+        theme={theme}
+        archivedThreads={archivedThreads}
+        loading={archivedLoading}
+        onClose={() => setSettingsVisible(false)}
+        onTheme={setTheme}
+        onRefresh={() => void refreshArchivedThreads()}
+        onRestore={(thread) => void restoreThread(thread)}
+      />
 
       <WorkspacePanel
         visible={workspaceVisible && surfaceMode === "build"}
