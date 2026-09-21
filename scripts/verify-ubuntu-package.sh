@@ -30,8 +30,7 @@ test_home="$(mktemp -d)"
 trap 'rm -rf -- "$test_home"' EXIT
 mkdir -p "$test_home/.codex" "$test_home/.config"
 HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" CODEX_HOME="$test_home/.codex" \
-  LODEX_SMOKE_TEST=1 LODEX_SMOKE_SCREENSHOT="$PWD/release/ubuntu-smoke.png" \
-  timeout 60s xvfb-run -a /usr/bin/lodex --disable-gpu 2>&1 | tee release/ubuntu-smoke.log
+  timeout 60s xvfb-run -a node scripts/smoke-installed-app.cjs 2>&1 | tee release/ubuntu-smoke.log
 grep -q 'LODEX_SMOKE_OK' release/ubuntu-smoke.log
 
 (cd release && sha256sum "$(basename "$package")" > SHA256SUMS)

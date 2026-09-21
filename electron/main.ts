@@ -85,7 +85,7 @@ function createWindow(): void {
         try {
           // Exercise the packaged runtime as well as the rendered window.
           await codex.start();
-          await codex.request("account/read");
+          await codex.request("account/read", { refreshToken: false });
           const snapshot = await mainWindow?.webContents.executeJavaScript(`({
             title: document.title,
             hasRoot: Boolean(document.querySelector('#root')),
