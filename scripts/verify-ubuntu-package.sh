@@ -22,7 +22,7 @@ test -f /usr/share/icons/hicolor/512x512/apps/lodex.png
 test -f /opt/Lodex/resources/apparmor-profile
 test -x /usr/bin/lodex
 modules=/opt/Lodex/resources/app.asar.unpacked/node_modules/@openai
-test -x "$modules/codex-linux-${codex_arch}/vendor/${triple}/codex/codex"
+test -x "$modules/codex-linux-${codex_arch}/vendor/${triple}/bin/codex"
 ELECTRON_RUN_AS_NODE=1 /opt/Lodex/lodex "$modules/codex/bin/codex.js" --version
 
 # Keep authentication, preferences and history isolated from the test account.
