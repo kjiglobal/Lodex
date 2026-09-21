@@ -19,7 +19,20 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Command, file-change, permission, and user-input approval surfaces.
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
 
-## Ubuntu requirements
+## Install on Ubuntu (no terminal needed)
+
+1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/latest/download/Lodex-0.2.0-amd64.deb) on your Ubuntu laptop.
+2. Open **Downloads** and double-click **Lodex-0.2.0-amd64.deb**.
+3. Click **Install** in App Center / Software Install and enter your Ubuntu password when asked.
+4. Open **Lodex** from the applications menu, then choose **Sign in with ChatGPT**.
+
+This installer is for **Ubuntu 24.04 or newer on Intel/AMD 64-bit laptops**. It includes Electron and the Linux Codex runtime; you do not need Node.js, npm, a global Codex installation, or an API key. Ubuntu installs the package's system dependencies automatically, so keep an internet connection available during installation. A ChatGPT account with Codex access is required to use the app.
+
+If double-clicking opens Archive Manager, right-click the file, choose **Open With**, and select **App Center** or **Software Install**. If neither is available, install **GDebi Package Installer** from App Center and open the file with GDebi.
+
+For an ARM64 laptop, build on ARM64 Ubuntu using the instructions below; the amd64 download is not compatible with ARM.
+
+## Requirements for building from source
 
 - Ubuntu 24.04 or newer, x86-64 or ARM64.
 - Node.js 22 or newer and npm.
@@ -28,16 +41,18 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 
 The packaged app contains the matching `@openai/codex` runtime. You do not need to paste an API key or install Codex globally.
 
-## Build on the Ubuntu VM
+## Build on Ubuntu
 
 Copy or mount this repository in Ubuntu, then run:
 
 ```bash
 sudo apt update
-sudo apt install -y nodejs npm git build-essential
+sudo apt install -y git build-essential
 chmod +x scripts/build-linux.sh
 ./scripts/build-linux.sh
 ```
+
+Install Node.js 22 (latest 22.x) or newer before running the script. Ubuntu 24.04's default Node.js package is too old for the build. To build only the double-click Ubuntu installer, run `npm run dist:ubuntu`.
 
 Artifacts are written to `release/`. Install the Debian package:
 
@@ -53,6 +68,8 @@ chmod +x release/Lodex-0.2.0-x86_64.AppImage
 ```
 
 If the VM does not provide FUSE support, run the AppImage with `--appimage-extract-and-run` or use the Debian package.
+
+The **Ubuntu installer** GitHub Actions workflow builds on Ubuntu 24.04, installs the `.deb`, validates its application launcher, runs its bundled Codex runtime, and checks that the app window opens with the Electron sandbox enabled. It saves the installer, SHA-256 checksum, and verification screenshot as workflow artifacts. Run `bash scripts/verify-ubuntu-package.sh` only on a disposable Ubuntu test machine because it installs the package.
 
 ## First launch
 

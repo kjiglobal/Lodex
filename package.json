@@ -16,6 +16,7 @@
     "build": "npm run typecheck && vite build && tsc -p tsconfig.electron.json",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "dist:linux": "npm run build && electron-builder --linux AppImage deb",
+    "dist:ubuntu": "bash scripts/build-linux.sh deb",
     "generate:icon": "node scripts/generate-icon.cjs",
     "start": "electron ."
   },
@@ -67,6 +68,23 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libgbm1",
+        "libasound2t64 | libasound2",
+        "ca-certificates",
+        "git"
+      ]
+    },
     "linux": {
       "target": [
         "AppImage",
