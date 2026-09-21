@@ -28,6 +28,7 @@ ELECTRON_RUN_AS_NODE=1 /opt/Lodex/lodex "$modules/codex/bin/codex.js" --version
 # Keep authentication, preferences and history isolated from the test account.
 test_home="$(mktemp -d)"
 trap 'rm -rf -- "$test_home"' EXIT
+mkdir -p "$test_home/.codex" "$test_home/.config"
 HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" CODEX_HOME="$test_home/.codex" \
   LODEX_SMOKE_TEST=1 LODEX_SMOKE_SCREENSHOT="$PWD/release/ubuntu-smoke.png" \
   timeout 60s xvfb-run -a /usr/bin/lodex --disable-gpu 2>&1 | tee release/ubuntu-smoke.log
