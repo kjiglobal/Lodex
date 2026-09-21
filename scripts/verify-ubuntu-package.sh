@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 
 # Run on a disposable Ubuntu test machine: this installs the built package.
 cd "$(dirname "$0")/.."
