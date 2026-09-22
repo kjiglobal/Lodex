@@ -1,6 +1,7 @@
 import {
   Archive,
   Blocks,
+  Bot,
   ChevronDown,
   FolderGit2,
   LogIn,
@@ -16,8 +17,8 @@ import {
   Sun,
   Settings,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { Account, AccountUsage, RateLimits, Thread } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Account, AccountUsage, RateLimits, SurfaceMode, Thread } from "../types";
 
 type Props = {
   threads: Thread[];
@@ -28,6 +29,7 @@ type Props = {
   accountUsage: AccountUsage | null;
   collapsed: boolean;
   theme: "light" | "dark";
+  surfaceMode: SurfaceMode;
   onToggle(): void;
   onToggleTheme(): void;
   onNew(): void;
@@ -41,6 +43,7 @@ type Props = {
   onLogout(): void;
   onSettings(): void;
   onArchived(): void;
+  onSwitchSurface(surface: SurfaceMode): void;
   busy: boolean;
 };
 
@@ -104,6 +107,7 @@ export function Sidebar({
   accountUsage,
   collapsed,
   theme,
+  surfaceMode,
   onToggle,
   onToggleTheme,
   onNew,
@@ -117,10 +121,19 @@ export function Sidebar({
   onLogout,
   onSettings,
   onArchived,
+  onSwitchSurface,
   busy,
 }: Props) {
   const [query, setQuery] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const isCodex = surfaceMode === "build";
+
+  useEffect(() => {
+    const focusSearch = () => searchInput.current?.focus();
+    window.addEventListener("lodex:focus-search", focusSearch);
+    return () => window.removeEventListener("lodex:focus-search", focusSearch);
+  }, []);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return threads;
@@ -168,14 +181,19 @@ export function Sidebar({
         <button className="icon-button sidebar-close" onClick={onToggle} title="Close sidebar"><PanelLeftClose size={18} /></button>
       </div>
 
+      <div className="product-switcher" aria-label="Product">
+        <button disabled={busy} className={!isCodex ? "active" : ""} onClick={() => onSwitchSurface("chat")}><MessageSquare size={15} />ChatGPT</button>
+        <button disabled={busy} className={isCodex ? "active" : ""} onClick={() => onSwitchSurface("build")}><Bot size={15} />Codex</button>
+      </div>
+
       <div className="sidebar-primary-actions">
-        <button className="new-task-button" disabled={busy} onClick={onNew}><PenLine size={17} /><span>New chat</span><kbd>Ctrl ⇧ O</kbd></button>
-        <label className="sidebar-search-field"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search chats" /></label>
+        <button className="new-task-button" disabled={busy} onClick={onNew}><PenLine size={17} /><span>{isCodex ? "New task" : "New chat"}</span><kbd>Ctrl N</kbd></button>
+        <label className="sidebar-search-field"><Search size={15} /><input ref={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search chats" /><kbd>Ctrl K</kbd></label>
       </div>
 
       <div className="sidebar-nav">
         <button className="workspace-button" disabled={busy} onClick={onOpenWorkspace} title={workspace ?? undefined}>
-          <FolderGit2 size={16} /><span>{shortPath(workspace)}</span><ChevronDown size={15} />
+          <FolderGit2 size={16} /><span>{workspace ? shortPath(workspace) : "Projects"}</span><ChevronDown size={15} />
         </button>
         <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Apps and skills</span></button>
       </div>

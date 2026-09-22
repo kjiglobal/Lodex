@@ -188,8 +188,31 @@ test("light, dark and compact layouts keep chat controls visible", async ({ page
   await page.screenshot({ path: "test-results/lodex-dark.png" });
   await page.setViewportSize({ width: 900, height: 650 });
   await expect(page.getByRole("textbox", { name: "Message Lodex" })).toBeInViewport();
-  await expect(page.getByRole("navigation", { name: "Lodex mode" })).toBeInViewport();
+  await expect(page.getByRole("navigation", { name: "ChatGPT mode" })).toBeInViewport();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow).toBe(false);
   await page.screenshot({ path: "test-results/lodex-compact.png" });
+});
+
+test("product navigation keeps saved modes, shortcuts and running-turn protection", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => {
+    localStorage.removeItem("lodex-mode");
+    localStorage.setItem("lodex-surface", "build");
+  });
+  await page.reload();
+  await expect(page.locator(".product-heading")).toHaveText("Codex");
+  await page.keyboard.press("Control+Alt+n");
+  await expect(page.getByRole("navigation", { name: "ChatGPT mode" })).toBeVisible();
+  await page.keyboard.press("Control+k");
+  await expect(page.getByPlaceholder("Search chats")).toBeFocused();
+  await start(page);
+  await expect(page.getByRole("button", { name: "Codex", exact: true })).toBeDisabled();
+  await page.keyboard.press("Control+n");
+  await expect(page.getByTitle("Stop response")).toBeVisible();
+  await page.getByTitle("Stop response").click();
+  await expect(page.getByRole("button", { name: "Codex", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.getByRole("button", { name: "Manage archived chats" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Archived example");
 });

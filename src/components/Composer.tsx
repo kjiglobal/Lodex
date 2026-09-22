@@ -1,13 +1,14 @@
-import { ArrowUp, Blocks, FileText, Paperclip, Plus, Square, X } from "lucide-react";
+import { ArrowUp, Blocks, FileText, FolderGit2, Paperclip, Plus, Sparkles, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { storage } from "../storage";
-import type { Attachment } from "../types";
+import type { Attachment, SurfaceMode } from "../types";
 
 type Props = {
   disabled: boolean;
   running: boolean;
   workspace: string | null;
   draftKey: string;
+  surfaceMode: SurfaceMode;
   onSend(text: string, attachments: Attachment[]): Promise<void>;
   onStop(): void;
   onOpenTools(): void;
@@ -20,7 +21,7 @@ function readDraft(key: string): { text: string; attachments: Attachment[] } {
   } catch { return { text: "", attachments: [] }; }
 }
 
-export function Composer({ disabled, running, workspace, draftKey, onSend, onStop, onOpenTools }: Props) {
+export function Composer({ disabled, running, workspace, draftKey, surfaceMode, onSend, onStop, onOpenTools }: Props) {
   const key = `lodex-draft-${draftKey}`;
   const [value, setValue] = useState(() => readDraft(key).text);
   const [attachments, setAttachments] = useState<Attachment[]>(() => readDraft(key).attachments);
@@ -100,7 +101,10 @@ export function Composer({ disabled, running, workspace, draftKey, onSend, onSto
             <button role="menuitem" onClick={() => void attach()}><Paperclip size={18} /><span>Add photos and files<small>Up to 8 files, 20 MB each</small></span></button>
             <button role="menuitem" onClick={() => { setMenu(false); onOpenTools(); }}><Blocks size={18} /><span>Apps and skills<small>Use your connected tools</small></span></button>
           </div>}
-          {workspace && <span className="composer-project">{workspace.replaceAll("\\", "/").split("/").at(-1)}</span>}
+          <span className="composer-context">
+            {surfaceMode === "build" ? <FolderGit2 size={13} /> : <Sparkles size={13} />}
+            {surfaceMode === "build" ? (workspace?.replaceAll("\\", "/").split("/").filter(Boolean).at(-1) || "Choose project") : surfaceMode === "work" ? "Work" : "Chat"}
+          </span>
         </div>
         {running ? <button className="send-button stop" onClick={onStop} title="Stop response"><Square size={14} fill="currentColor" /></button> :
           <button className="send-button" onClick={() => void submit()} disabled={disabled || sending || (!value.trim() && !attachments.length)} title="Send message"><ArrowUp size={21} /></button>}

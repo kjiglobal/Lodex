@@ -13,13 +13,13 @@ Codex requests now wait for the initialize handshake. A late exit from an old ru
 ## Chat experience
 
 - Chat-first light and dark layouts with a centered composer, quieter sidebar, and responsive model controls.
-- Chat, Work, and Build surfaces; available models come from the signed-in account. Bundled Codex updated from 0.150.1 to 0.155.1 (the npm latest release when checked).
+- ChatGPT navigation for Chat and Work, and Codex navigation for project work; available models come from the signed-in account. Bundled Codex updated from 0.150.1 to 0.155.1 (the npm latest release when checked).
 - Persistent per-chat drafts, including attachment selections; Enter cannot start another turn while one is running. IME composition does not submit a message.
 - Photo and file picker. Images use native image input. Supported text files are included as text (up to 500 KB); other documents are passed as file references, so format support depends on runtime tools. Up to eight attachments and 20 MB per file. There is no separate document conversion service.
 - Copy responses and code, export a conversation to Markdown, and branch a conversation.
 - Edit a message or retry an answer in a new branch; the original history is retained. Existing project file changes are not undone.
 - Inline chat rename, pins, archived-chat restore, settings, and custom instructions for new chats.
-- Ctrl+Shift+O for new chat, Ctrl+K for chat search, Ctrl+B for the sidebar.
+- Ctrl+N for a new chat or task, Ctrl+Alt+N for quick chat, Ctrl+Shift+O to open a project, Ctrl+K for chat search, and Ctrl+B for the sidebar.
 
 ## Compatibility boundary
 

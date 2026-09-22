@@ -162,6 +162,8 @@ button { color: inherit; }
 .composer textarea { display: block; width: 100%; min-height: 31px; max-height: 180px; padding: 6px 7px; resize: none; overflow-y: auto; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 14px; line-height: 1.5; }
 .composer textarea::placeholder { color: #999993; }
 .composer-actions { display: flex; align-items: center; justify-content: space-between; padding: 1px 1px 0; }.composer-actions > div { display: flex; }
+.composer-context { display: inline-flex; align-items: center; gap: 5px; max-width: 180px; height: 32px; margin-left: 3px; padding: 0 8px; overflow: hidden; border-radius: 8px; color: var(--muted); white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
+.composer-context svg { flex: 0 0 auto; }
 .muted-action { display: none; }
 .send-button { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; border: 0; border-radius: 50%; color: #fff; background: #20201e; cursor: pointer; }.send-button:disabled { color: #aaa9a3; background: #e5e5e1; cursor: default; }.send-button.stop { background: #353532; }
 .composer-caption { margin: 6px 0 0; color: #aaa9a3; text-align: center; font-size: 10px; }
@@ -239,12 +241,18 @@ body, button, input, textarea, select { color: var(--text); }
 .brand-mark.small { width: 30px; height: 30px; margin-bottom: 5px; }
 .sidebar-bottom-action { margin-top: auto; }
 .sidebar-brand { height: 42px; padding: 0 5px 8px; }
+.product-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 2px 1px 10px; padding: 3px; border: 1px solid var(--border-soft); border-radius: 10px; background: color-mix(in srgb, var(--surface-soft) 72%, transparent); }
+.product-switcher button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; font-size: 11px; font-weight: 600; }
+.product-switcher button:hover { color: var(--text); }
+.product-switcher button.active { color: var(--text); background: var(--surface); box-shadow: 0 1px 4px #00000017; }
 .sidebar-primary-actions { display: grid; gap: 4px; }
 .new-task-button { color: var(--text); font-weight: 560; }
 .new-task-button:hover, .workspace-button:hover, .account-signin:hover, .theme-button:hover { background: var(--hover); }
 .sidebar-search-field { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); }
 .sidebar-search-field:focus-within { border-color: var(--border); background: var(--surface); }
 .sidebar-search-field input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 12px; }
+.sidebar kbd { flex: 0 0 auto; padding: 2px 5px; border: 1px solid var(--border-soft); border-radius: 5px; color: var(--faint); background: color-mix(in srgb, var(--surface) 60%, transparent); font: 9px/1.25 ui-monospace, "SFMono-Regular", Consolas, monospace; }
+.new-task-button kbd { margin-left: auto; }
 .sidebar-nav { margin: 8px 0 10px; padding: 7px 0; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
 .workspace-button { height: 35px; margin: 0; color: var(--muted); font-size: 12px; }
 .thread-list { padding: 0 1px; overflow-x: visible; }
@@ -276,10 +284,11 @@ body, button, input, textarea, select { color: var(--text); }
 .topbar-left { display: flex; min-width: 0; align-items: center; gap: 3px; }
 .task-title { display: none; max-width: 230px; }
 .task-title span { color: var(--muted); font-size: 12px; }
-.surface-switcher { display: flex; width: 330px; height: 43px; padding: 4px; border: 1px solid var(--border-soft); border-radius: 24px; background: var(--surface-soft); }
+.surface-switcher { display: flex; width: 230px; height: 43px; padding: 4px; border: 1px solid var(--border-soft); border-radius: 24px; background: var(--surface-soft); }
 .surface-switcher button { flex: 1; border: 0; border-radius: 20px; color: var(--muted); background: transparent; cursor: pointer; font-size: 13px; font-weight: 560; }
 .surface-switcher button:hover { color: var(--text); }
 .surface-switcher button.active { color: var(--text); background: var(--surface); box-shadow: 0 1px 5px #0000001d; }
+.product-heading { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 112px; height: 36px; padding: 0 13px; border: 1px solid var(--border-soft); border-radius: 18px; background: var(--surface-soft); font-size: 12px; font-weight: 650; }
 .topbar-controls { min-width: 0; margin-left: 0; justify-self: end; }
 .topbar-action { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted); background: var(--surface); cursor: pointer; font-size: 11px; font-weight: 600; }
 .topbar-action:hover:not(:disabled), .topbar-action.active { color: var(--text); background: var(--surface-soft); }
@@ -399,14 +408,14 @@ body, button, input, textarea, select { color: var(--text); }
 :root[data-theme="dark"] .composer-caption { color: var(--faint); }
 
 @media (max-width: 1380px) {
-  .surface-switcher { width: 270px; }
+  .surface-switcher { width: 220px; }
   .task-title { display: none; }
   .select-control.compact { display: none; }
 }
 
 @media (max-width: 1100px) {
   .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .surface-switcher { width: 240px; }
+  .surface-switcher { width: 200px; }
   .select-control { display: none; }
   .topbar-action span { display: none; }
   .topbar-action { width: 34px; padding: 0; justify-content: center; }
@@ -415,7 +424,7 @@ body, button, input, textarea, select { color: var(--text); }
 
 @media (max-width: 760px) {
   .sidebar:not(.sidebar-collapsed) { position: fixed; z-index: 50; top: 0; left: 0; width: min(290px, 88vw); height: 100%; box-shadow: var(--shadow); }
-  .surface-switcher { width: 205px; }
+  .surface-switcher { width: 180px; }
   .topbar { padding-left: 9px; }
   .runtime-dot, .topbar-controls > .icon-button:not(:last-child) { display: none; }
   .message-list { padding-right: 18px; padding-left: 18px; }

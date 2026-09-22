@@ -45,6 +45,7 @@ import type {
   PlanStep,
   RateLimits,
   Skill,
+  SurfaceMode,
   Thread,
   ThreadGoal,
   ThreadItem,
@@ -79,8 +80,6 @@ const withLocalPins = (threads: Thread[]) => {
   return threads.map((thread) => ({ ...thread, isPinned: pinned.has(thread.id) }));
 };
 
-type SurfaceMode = "chat" | "work" | "build";
-
 const initialTheme = (): "light" | "dark" => {
   const stored = storage.get("lodex-theme");
   if (stored === "light" || stored === "dark") return stored;
@@ -94,7 +93,7 @@ export default function App() {
   const [effort, setEffort] = useState("");
   const [approvalPolicy, setApprovalPolicy] = useState("on-request");
   const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>(() => {
-    const saved = storage.get("lodex-mode");
+    const saved = storage.get("lodex-mode") || storage.get("lodex-surface");
     return saved === "work" || saved === "build" ? saved : "chat";
   });
   const [draftKey, setDraftKey] = useState(() => storage.get("lodex-active-thread") || "new");
@@ -718,7 +717,8 @@ export default function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
-      if (event.shiftKey && event.key.toLowerCase() === "o") { event.preventDefault(); newTask(); }
+      if (event.shiftKey && event.key.toLowerCase() === "o") { event.preventDefault(); void openWorkspace(); }
+      if (event.key.toLowerCase() === "n") { event.preventDefault(); if (event.altKey) switchSurface("chat"); else newTask(); }
       if (event.key.toLowerCase() === "b") { event.preventDefault(); setSidebarCollapsed(value => !value); }
       if (event.key.toLowerCase() === "k") { event.preventDefault(); setSidebarCollapsed(false); window.setTimeout(() => document.querySelector<HTMLInputElement>(".sidebar-search-field input")?.focus(), 0); }
     };
@@ -747,6 +747,8 @@ export default function App() {
         accountUsage={accountUsage}
         collapsed={sidebarCollapsed}
         theme={theme}
+        surfaceMode={surfaceMode}
+        onSwitchSurface={switchSurface}
         onToggle={() => setSidebarCollapsed((value) => !value)}
         onToggleTheme={() => setTheme((value) => value === "light" ? "dark" : "light")}
         onNew={newTask}
@@ -799,11 +801,15 @@ export default function App() {
               <ChevronDown size={13} />
             </label>}
           </div>
-          <nav className="surface-switcher" aria-label="Lodex mode">
-            {(["chat", "work", "build"] as SurfaceMode[]).map((surface) => (
-              <button disabled={running || loadingThread} className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
-            ))}
-          </nav>
+          {surfaceMode === "build" ? (
+            <div className="product-heading"><Blocks size={15} /><span>Codex</span></div>
+          ) : (
+            <nav className="surface-switcher" aria-label="ChatGPT mode">
+              {(["chat", "work"] as SurfaceMode[]).map((surface) => (
+                <button disabled={running || loadingThread} className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
+              ))}
+            </nav>
+          )}
           <div className="topbar-controls">
             <span className={`runtime-dot ${runtimeState}`} title={`Codex runtime: ${runtimeState}`} />
             {activeThread && <details className="chat-options"><summary className="icon-button" title="Chat options"><MoreHorizontal size={20} /></summary><div className="chat-options-menu">
@@ -868,7 +874,7 @@ export default function App() {
           ) : (
             <MessageList key={activeThread?.id || "new"} items={items} loading={loadingThread} running={running} onEdit={editMessage} onRegenerate={regenerate} />
           )}
-          <Composer key={draftKey} draftKey={draftKey} disabled={runtimeState !== "ready" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} onSend={send} onStop={stop} onOpenTools={openTools} />
+          <Composer key={draftKey} draftKey={draftKey} surfaceMode={surfaceMode} disabled={runtimeState !== "ready" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} onSend={send} onStop={stop} onOpenTools={openTools} />
         </div>
 
         {terminalVisible && <TerminalPanel workspace={workspace} onClose={() => setTerminalVisible(false)} />}
@@ -899,7 +905,7 @@ export default function App() {
         onRefresh={refreshWorkspace}
       /></Suspense>}
 
-      {settingsVisible && <SettingsDialog theme={theme} onTheme={setTheme} approvalPolicy={approvalPolicy} onApproval={setApprovalPolicy} instructions={instructions} onInstructions={value => { setInstructions(value); storage.set("lodex-instructions", value); }} onClose={() => setSettingsVisible(false)} />}
+      {settingsVisible && <SettingsDialog theme={theme} onTheme={setTheme} approvalPolicy={approvalPolicy} onApproval={setApprovalPolicy} instructions={instructions} onInstructions={value => { setInstructions(value); storage.set("lodex-instructions", value); }} onArchived={() => { setSettingsVisible(false); void openArchived(); }} onClose={() => setSettingsVisible(false)} />}
 
       {archivedVisible && <div className="modal-backdrop"><section className="settings-dialog" role="dialog" aria-modal="true" aria-label="Archived chats"><header><h2>Archived chats</h2><button className="icon-button" title="Close archived chats" onClick={() => setArchivedVisible(false)}><X size={20} /></button></header>{archivedThreads.map(thread => <div className="settings-row" key={thread.id}><span>{titleForThread(thread)}</span><button className="secondary-button" onClick={() => void restoreThread(thread)}>Restore</button></div>)}{!archivedThreads.length && <p className="drawer-empty">No archived chats.</p>}</section></div>}
 

@@ -36,9 +36,9 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 
 ## Product surfaces
 
-- **Chat** starts a conversation without assigning a project directory and uses a read-only sandbox.
-- **Work** adds goal and activity affordances while retaining the selected project as optional context.
-- **Build** binds turns to the selected project and exposes files, Git, and the terminal.
+- **ChatGPT / Chat** starts a conversation without assigning a project directory and uses a read-only sandbox.
+- **ChatGPT / Work** adds goal and activity affordances while retaining the selected project as optional context.
+- **Codex** binds turns to the selected project and exposes files, Git, and the terminal. Internally this remains the `build` surface for app-server compatibility.
 - Chat pins are a local Lodex preference because the current app-server thread metadata does not expose a pin field. Thread names, history, goals, and archive state remain server-managed.
 
 ## Filesystem and process boundaries
