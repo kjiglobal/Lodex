@@ -1,14 +1,17 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, session, shell } from "electron";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { CodexClient } from "./codex-client";
 import { WorkspaceService } from "./workspace";
+import { installMenu } from "./menu";
+import { accessMode, sandboxMode, sandboxPolicy } from "./access";
 
 // Software rendering avoids blank surfaces on Linux drivers after suspend.
 // Keep an opt-in for machines whose GPU is known to work well with Electron.
 const softwareRendering = process.platform === "linux" && process.env.LODEX_HARDWARE_ACCELERATION !== "1";
 if (softwareRendering) app.disableHardwareAcceleration();
+if (process.env.LODEX_USER_DATA_DIR) app.setPath("userData", path.resolve(process.env.LODEX_USER_DATA_DIR));
 
 let diagnosticWrites = Promise.resolve();
 function recordDiagnostic(category: string): void {
@@ -20,12 +23,6 @@ function recordDiagnostic(category: string): void {
   }).catch(() => undefined);
 }
 
-function sendToRenderer(channel: string, value: unknown): void {
-  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-    try { mainWindow.webContents.send(channel, value); } catch { /* A renderer may exit between the checks and send. */ }
-  }
-}
-
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "lodex-image",
@@ -34,12 +31,19 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
-const workspace = new WorkspaceService();
+type WindowSession = { workspace: WorkspaceService; codex: CodexClient };
+const sessions = new Map<number, WindowSession>();
+function sessionFor(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): WindowSession {
+  const value = sessions.get(event.sender.id);
+  if (!value || event.senderFrame !== event.sender.mainFrame) throw new Error("Unknown Lodex window.");
+  return value;
+}
 const rendererCodexMethods = new Set([
   "account/read",
   "model/list",
   "thread/list",
   "thread/start",
+  "thread/unsubscribe",
   "thread/resume",
   "thread/read",
   "thread/fork",
@@ -61,16 +65,10 @@ const rendererCodexMethods = new Set([
   "command/exec/resize",
   "command/exec/terminate",
 ]);
-const codex = new CodexClient(
-  (message) => {
-    const item = (message.params as { item?: { type?: string; savedPath?: string } } | undefined)?.item;
-    if (item?.type === "imageGeneration") workspace.allowGeneratedImage(item.savedPath);
-    sendToRenderer("codex:event", message);
-  },
-  (status) => sendToRenderer("codex:status", status),
-);
-
-function createWindow(): void {
+async function createWindow(): Promise<void> {
+  const workspace = new WorkspaceService();
+  await workspace.load();
+  const isAdditional = sessions.size > 0;
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 960,
@@ -87,11 +85,25 @@ function createWindow(): void {
     },
   });
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
-
   const window = mainWindow;
+  const sendToRenderer = (channel: string, value: unknown) => {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+      try { window.webContents.send(channel, value); } catch { /* Renderer is recovering. */ }
+    }
+  };
+  const codex = new CodexClient(message => {
+    const item = (message.params as { item?: { type?: string; savedPath?: string } } | undefined)?.item;
+    if (item?.type === "imageGeneration") workspace.allowGeneratedImage(item.savedPath);
+    sendToRenderer("codex:event", message);
+  }, status => sendToRenderer("codex:status", status));
+  const windowId = window.webContents.id;
+  sessions.set(windowId, { workspace, codex });
+  window.on("closed", () => {
+    codex.stop(); sessions.delete(windowId);
+    void workspace.clearTemporaryImages();
+    if (mainWindow === window) mainWindow = BrowserWindow.getAllWindows()[0] || null;
+  });
+  void codex.start().catch(() => undefined);
   let recoveryAttempts = 0;
   let recoveryReset: NodeJS.Timeout | undefined;
   let recoveryDialogOpen = false;
@@ -129,15 +141,16 @@ function createWindow(): void {
   window.webContents.on("preload-error", () => recordDiagnostic("preload-error"));
 
   const devServer = process.env.VITE_DEV_SERVER_URL;
-  const loaded = devServer ? window.loadURL(devServer) : window.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+  const windowSlot = isAdditional ? String(windowId) : "primary";
+  const loaded = devServer ? window.loadURL(devServer + "?window=" + windowSlot) : window.loadFile(path.join(__dirname, "..", "dist", "index.html"), { query: { window: windowSlot } });
   void loaded.catch(() => recordDiagnostic("window-load-rejected"));
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    const current = mainWindow?.webContents.getURL();
+  window.webContents.on("will-navigate", (event, url) => {
+    const current = window.webContents.getURL();
     if (current && url !== current) {
       event.preventDefault();
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
@@ -145,13 +158,13 @@ function createWindow(): void {
   });
 
   if (process.env.LODEX_SMOKE_TEST === "1") {
-    mainWindow.webContents.once("did-finish-load", () => {
+    window.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
         try {
           // Exercise the packaged runtime as well as the rendered window.
           await codex.start();
           await codex.request("account/read", { refreshToken: false });
-          const snapshot = await mainWindow?.webContents.executeJavaScript(`({
+          const snapshot = await window.webContents.executeJavaScript(`({
             title: document.title,
             hasRoot: Boolean(document.querySelector('#root')),
             hasComposer: Boolean(document.querySelector('.composer')),
@@ -162,8 +175,8 @@ function createWindow(): void {
             throw new Error("The Lodex window did not render its main controls.");
           }
           const screenshotPath = process.env.LODEX_SMOKE_SCREENSHOT;
-          if (screenshotPath && mainWindow) {
-            const image = await mainWindow.webContents.capturePage();
+          if (screenshotPath && !window.isDestroyed()) {
+            const image = await window.webContents.capturePage();
             await fs.writeFile(screenshotPath, image.toPNG());
           }
           console.log(`LODEX_SMOKE_OK ${JSON.stringify(snapshot)}`);
@@ -198,8 +211,9 @@ function registerIpc(): void {
     await fs.writeFile(result.filePath, content, "utf8");
     return true;
   });
-  ipcMain.handle("codex:pending-requests", () => codex.pendingServerRequests());
+  ipcMain.handle("codex:pending-requests", event => sessionFor(event).codex.pendingServerRequests());
   ipcMain.handle("codex:request", async (_event, method: unknown, params: unknown) => {
+    const { workspace, codex } = sessionFor(_event);
     if (typeof method !== "string" || !rendererCodexMethods.has(method)) throw new Error("Unsupported Codex method.");
     const value = params && typeof params === "object" ? { ...(params as Record<string, unknown>) } : {};
     if (method === "thread/start" || method === "thread/fork") {
@@ -210,15 +224,19 @@ function registerIpc(): void {
         value.cwd = source.thread.cwd;
       }
       delete value.restartFromThreadId;
-      value.sandbox = surface === "chat" ? "read-only" : "workspace-write";
+      value.sandbox = sandboxMode(accessMode(value.accessMode, surface));
+      delete value.accessMode;
       delete value.surface;
     }
     if (method === "turn/start") {
       // Continue in the thread's own directory. A project selected elsewhere
       // must not silently redirect an existing conversation's file operations.
       delete value.cwd;
+      const mode = accessMode(value.accessMode, value.surface);
+      const source = await codex.request<{ thread: { cwd: string } }>("thread/read", { threadId: value.threadId });
+      value.sandboxPolicy = sandboxPolicy(mode, source.thread.cwd);
+      delete value.accessMode;
       delete value.surface;
-      delete value.sandboxPolicy;
     }
     if (method.startsWith("command/exec")) {
       const processId = value.processId;
@@ -242,12 +260,14 @@ function registerIpc(): void {
   });
 
   ipcMain.on("codex:respond", (_event, id: unknown, result: unknown) => {
+    const { codex } = sessionFor(_event);
     if (typeof id !== "number" && typeof id !== "string") return;
     try { codex.respond(id, result); }
-    catch { sendToRenderer("codex:status", { state: "error", message: "The runtime disconnected before receiving your response. Reconnect to continue." }); }
+    catch { _event.sender.send("codex:status", { state: "error", message: "The runtime disconnected before receiving your response. Reconnect to continue." }); }
   });
 
-  ipcMain.handle("auth:login-chatgpt", async () => {
+  ipcMain.handle("auth:login-chatgpt", async event => {
+    const { codex } = sessionFor(event);
     const result = await codex.request<{ authUrl?: string }>("account/login/start", {
       type: "chatgpt",
       useHostedLoginSuccessPage: true,
@@ -258,35 +278,43 @@ function registerIpc(): void {
     return result;
   });
 
-  ipcMain.handle("auth:logout", () => codex.request("account/logout"));
+  ipcMain.handle("auth:logout", async event => {
+    const result = await sessionFor(event).codex.request("account/logout");
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send("codex:event", { method: "account/updated", params: {} });
+    return result;
+  });
 
-  ipcMain.handle("workspace:current", () => workspace.current());
-  ipcMain.handle("workspace:choose", () => workspace.choose());
-  ipcMain.handle("workspace:choose-images", () => workspace.chooseImages());
-  ipcMain.handle("workspace:choose-attachments", () => workspace.chooseAttachments());
-  ipcMain.handle("workspace:attachment-inputs", (_event, attachments: unknown) => workspace.attachmentInputs(attachments));
-  ipcMain.handle("workspace:tree", () => workspace.tree());
+  ipcMain.handle("workspace:projects", event => sessionFor(event).workspace.listProjects());
+  ipcMain.handle("workspace:select", (event, value: unknown) => sessionFor(event).workspace.selectProject(value));
+  ipcMain.handle("workspace:paste-image", (event, bytes: unknown, temporary: unknown) => sessionFor(event).workspace.pasteImage(bytes, temporary === true));
+  ipcMain.handle("workspace:clear-temporary", event => sessionFor(event).workspace.clearTemporaryImages());
+  ipcMain.handle("workspace:current", event => sessionFor(event).workspace.current());
+  ipcMain.handle("workspace:choose", event => sessionFor(event).workspace.choose());
+  ipcMain.handle("workspace:choose-images", event => sessionFor(event).workspace.chooseImages());
+  ipcMain.handle("workspace:choose-attachments", event => sessionFor(event).workspace.chooseAttachments());
+  ipcMain.handle("workspace:attachment-inputs", (_event, attachments: unknown) => sessionFor(_event).workspace.attachmentInputs(attachments));
+  ipcMain.handle("workspace:tree", event => sessionFor(event).workspace.tree());
   ipcMain.handle("workspace:read", (_event, filePath: unknown) => {
     if (typeof filePath !== "string") throw new Error("Invalid file path.");
-    return workspace.read(filePath);
+    return sessionFor(_event).workspace.read(filePath);
   });
   ipcMain.handle("workspace:write", (_event, filePath: unknown, content: unknown) => {
     if (typeof filePath !== "string" || typeof content !== "string") throw new Error("Invalid file write.");
-    return workspace.write(filePath, content);
+    return sessionFor(_event).workspace.write(filePath, content);
   });
 
-  ipcMain.handle("git:status", () => workspace.gitStatus());
+  ipcMain.handle("git:status", event => sessionFor(event).workspace.gitStatus());
   ipcMain.handle("git:diff", (_event, filePath: unknown, staged: unknown) => {
     if (typeof filePath !== "string") throw new Error("Invalid Git path.");
-    return workspace.gitDiff(filePath, Boolean(staged));
+    return sessionFor(_event).workspace.gitDiff(filePath, Boolean(staged));
   });
   ipcMain.handle("git:stage", (_event, filePath: unknown) => {
     if (typeof filePath !== "string") throw new Error("Invalid Git path.");
-    return workspace.gitStage(filePath);
+    return sessionFor(_event).workspace.gitStage(filePath);
   });
   ipcMain.handle("git:unstage", (_event, filePath: unknown) => {
     if (typeof filePath !== "string") throw new Error("Invalid Git path.");
-    return workspace.gitUnstage(filePath);
+    return sessionFor(_event).workspace.gitUnstage(filePath);
   });
 }
 
@@ -294,16 +322,19 @@ app.whenReady().then(async () => {
   protocol.handle("lodex-image", (request) => {
     const requestUrl = new URL(request.url);
     const filePath = requestUrl.searchParams.get("path");
-    if (!filePath || !/\.(png|jpe?g|webp|gif)$/i.test(filePath) || !workspace.canLoadImage(filePath)) {
+    if (!filePath || !/\.(png|jpe?g|webp|gif)$/i.test(filePath) || ![...sessions.values()].some(value => value.workspace.canLoadImage(filePath))) {
       return new Response("Unsupported image", { status: 400 });
     }
     return net.fetch(pathToFileURL(filePath).toString());
   });
 
-  await workspace.load();
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    callback(permission === "media" && sessions.has(contents.id) && details.isMainFrame && "mediaTypes" in details && details.mediaTypes?.every(type => type === "audio") === true);
+  });
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => permission === "media" && details.mediaType === "audio" && !!contents && sessions.has(contents.id));
   registerIpc();
-  createWindow();
-  void codex.start().catch(() => undefined);
+  installMenu(() => { void createWindow(); });
+  await createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -314,4 +345,4 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => codex.stop());
+app.on("before-quit", () => { for (const value of sessions.values()) { value.codex.stop(); void value.workspace.clearTemporaryImages(); } });

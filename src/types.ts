@@ -160,6 +160,7 @@ export type AttachedImage = { path: string; name: string };
 export type Attachment = AttachedImage & { kind: "image" | "file"; size?: number };
 
 export type SurfaceMode = "chat" | "work" | "build";
+export type AccessMode = "read-only" | "workspace-write" | "full-access";
 
 export type CodexEvent = {
   id?: number | string;
@@ -176,6 +177,7 @@ export type PendingServerRequest = {
 export type LodexApi = {
   platform: string;
   app: {
+    onMenu(callback: (action: string) => void): () => void;
     reportError(category: string): void;
     openDiagnostics(): Promise<void>;
     exportChat(title: string, content: string): Promise<boolean>;
@@ -193,6 +195,10 @@ export type LodexApi = {
     logout(): Promise<unknown>;
   };
   workspace: {
+    projects(): Promise<string[]>;
+    select(value: string): Promise<string>;
+    pasteImage(bytes: Uint8Array, temporary: boolean): Promise<Attachment>;
+    clearTemporary(): Promise<void>;
     current(): Promise<string | null>;
     choose(): Promise<string | null>;
     chooseImages(): Promise<AttachedImage[]>;

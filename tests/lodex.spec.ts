@@ -13,19 +13,19 @@ async function setup(page: Page) {
       ],
     };
     let threads = read() || [initial];
-    const save = () => sessionStorage.setItem("test-runtime", JSON.stringify(threads));
+    const save = () => sessionStorage.setItem("test-runtime", JSON.stringify(threads.filter((thread: any) => !thread.ephemeral)));
     w.__requests = [];
     w.__emit = (event: any) => { for (const listener of listeners) listener(event); };
     w.__finish = () => { const thread = threads.at(-1); thread.status = { type: "idle" }; const turn = thread.turns.at(-1); turn.status = "completed"; save(); w.__emit({ method: "turn/completed", params: { threadId: thread.id, turn } }); };
     w.lodex = {
       platform: "linux",
-      app: { reportError: (category: string) => { w.__reported = [...(w.__reported || []), category]; }, info: async () => ({ version: "0.3.0", softwareRendering: true }), openDiagnostics: async () => {}, exportChat: async (title: string, content: string) => { w.__export = { title, content }; return true; } },
+      app: { onMenu: (callback: any) => { w.__menu = callback; return () => {}; }, reportError: (category: string) => { w.__reported = [...(w.__reported || []), category]; }, info: async () => ({ version: "0.4.0", softwareRendering: true }), openDiagnostics: async () => {}, exportChat: async (title: string, content: string) => { w.__export = { title, content }; return true; } },
       codex: {
         request: async (method: string, params: any = {}) => {
           w.__requests.push({ method, params });
           if (method === "account/read") return { account: { email: "test@example.com", planType: "Plus" }, requiresOpenaiAuth: true };
-          if (method === "model/list") return { data: [{ id: "test-model", model: "test-model", displayName: "Test model", isDefault: true, defaultReasoningEffort: "medium", supportedReasoningEfforts: [{ reasoningEffort: "medium" }, { reasoningEffort: "high" }] }] };
-          if (method === "thread/list") return { data: params.archived ? [{ ...initial, id: "archived-chat", name: "Archived example" }] : threads };
+          if (method === "model/list") return { data: [{ id: "test-model", model: "test-model", displayName: "Test model", description: "A model for testing", inputModalities: ["text", "image"], isDefault: true, defaultReasoningEffort: "medium", supportedReasoningEfforts: [{ reasoningEffort: "medium" }, { reasoningEffort: "high" }] }] };
+          if (method === "thread/list") return { data: params.archived ? [{ ...initial, id: "archived-chat", name: "Archived example" }] : threads.filter((thread: any) => !thread.ephemeral) };
           if (method === "thread/read" || method === "thread/resume") return { thread: threads.find((t: any) => t.id === params.threadId) };
           if (method === "thread/goal/get") return { goal: null };
           if (method === "thread/start" || method === "thread/fork") {
@@ -35,7 +35,7 @@ async function setup(page: Page) {
               const index = params.lastTurnId ? source.turns.findIndex((turn: any) => turn.id === params.lastTurnId) : source.turns.length - 1;
               turns = JSON.parse(JSON.stringify(source.turns.slice(0, index + 1)));
             }
-            const thread = { ...initial, id: "new-" + threads.length, name: "New conversation", turns };
+            const thread = { ...initial, id: "new-" + threads.length, name: "New conversation", turns, ephemeral: params.ephemeral === true };
             threads.push(thread); save(); return { thread };
           }
           if (method === "turn/start") {
@@ -59,9 +59,9 @@ async function setup(page: Page) {
         pendingRequests: async () => JSON.parse(sessionStorage.getItem("test-approvals") || "[]"),
       },
       auth: { loginWithChatGPT: async () => {}, logout: async () => {} },
-      workspace: { current: async () => null, choose: async () => null, tree: async () => [], imageUrl: () => "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+      workspace: { projects: async () => JSON.parse(sessionStorage.getItem("test-projects") || "[]"), select: async (path: string) => { w.__project = path; return path; }, clearTemporary: async () => {}, pasteImage: async (bytes: Uint8Array, temporary: boolean) => { w.__pasted = { size: bytes.length, temporary }; return { path: "/pasted.png", name: "Pasted image.png", kind: "image", size: bytes.length }; }, current: async () => w.__project || null, choose: async () => null, tree: async () => [], imageUrl: () => "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
         chooseAttachments: async () => [{ path: "/notes.txt", name: "notes.txt", kind: "file", size: 20 }],
-        attachmentInputs: async (files: any[]) => files.map(file => ({ type: "text", text: "Attached file: " + file.name + "\nSample notes", text_elements: [] })),
+        attachmentInputs: async (files: any[]) => files.map(file => file.kind === "image" ? { type: "localImage", path: file.path } : ({ type: "text", text: "Attached file: " + file.name + "\nSample notes", text_elements: [] })),
       }, git: { status: async () => null },
     };
   });
@@ -207,12 +207,95 @@ test("product navigation keeps saved modes, shortcuts and running-turn protectio
   await page.keyboard.press("Control+k");
   await expect(page.getByPlaceholder("Search chats")).toBeFocused();
   await start(page);
-  await expect(page.getByRole("button", { name: "Codex", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Switch between ChatGPT and Codex" })).toBeDisabled();
   await page.keyboard.press("Control+n");
   await expect(page.getByTitle("Stop response")).toBeVisible();
   await page.getByTitle("Stop response").click();
-  await expect(page.getByRole("button", { name: "Codex", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Switch between ChatGPT and Codex" })).toBeEnabled();
   await page.getByRole("button", { name: "Settings", exact: true }).first().click();
   await page.getByRole("button", { name: "Manage archived chats" }).click();
   await expect(page.getByRole("dialog")).toContainText("Archived example");
+});
+
+test("pasted images survive reload and reach the model while plain text still pastes", async ({ page }) => {
+  await setup(page);
+  const input = page.getByRole("textbox", { name: "Message Lodex" });
+  await input.fill("Describe this screenshot");
+  await input.evaluate(element => {
+    const data = new DataTransfer(); data.items.add(new File([new Uint8Array([137, 80, 78, 71])], "clipboard.png", { type: "image/png" }));
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator(".attachment")).toContainText("Pasted image.png");
+  await page.reload();
+  await expect(input).toHaveValue("Describe this screenshot");
+  await expect(page.locator(".attachment img")).toBeVisible();
+  const prevented = await input.evaluate(element => {
+    const data = new DataTransfer(); data.setData("text/plain", "ordinary text");
+    const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }); element.dispatchEvent(event); return event.defaultPrevented;
+  });
+  expect(prevented).toBe(false);
+  await page.getByTitle("Send message", { exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__requests.find((r: any) => r.method === "turn/start").params.input)).toContainEqual({ type: "localImage", path: "/pasted.png" });
+});
+
+test("sidebar groups, product menu and prompt settings perform their actions", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => sessionStorage.setItem("test-projects", JSON.stringify(["/project"])));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Pinned", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Projects", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Recents", exact: true })).toBeVisible();
+  await page.getByLabel("Expand project", { exact: true }).click();
+  await expect(page.locator(".project-chats")).toContainText("Planning a weekend");
+  await page.getByTitle("Chat actions").click(); await page.getByRole("button", { name: "Pin", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Pinned chats" })).toContainText("Planning a weekend");
+  await page.getByRole("button", { name: "Switch between ChatGPT and Codex" }).click();
+  await page.getByRole("menuitemradio", { name: /Codex Build/ }).click();
+  await expect(page.locator(".product-heading")).toHaveText("Codex");
+  await page.getByLabel("Model access", { exact: true }).click();
+  await page.getByRole("menuitemradio", { name: /Full access/ }).click();
+  await expect(page.getByLabel("Model access", { exact: true })).toHaveText("Full access");
+  await page.getByLabel("Model and reasoning").click();
+  await expect(page.getByRole("menu", { name: "Model options" })).toContainText("A model for testing");
+  await expect(page.getByRole("menu", { name: "Model options" })).toContainText("Supports text and image");
+  await page.getByRole("menuitemradio", { name: "High", exact: true }).click();
+  await start(page);
+  const params = await page.evaluate(() => (window as any).__requests.find((r: any) => r.method === "turn/start").params);
+  expect(params).toMatchObject({ accessMode: "full-access", effort: "high", approvalPolicy: "never" });
+});
+
+test("temporary chat leaves no persistent draft or history and menu actions are routed", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("Keep my ordinary draft");
+  await page.evaluate(() => (window as any).__menu("temporary-chat"));
+  await expect(page.locator(".temporary-banner")).toBeVisible();
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("Private temporary words");
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("Private temporary words");
+  await page.getByTitle("Send message", { exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__requests.find((r: any) => r.method === "thread/start").params.ephemeral)).toBe(true);
+  await page.evaluate(() => (window as any).__finish());
+  await page.evaluate(() => (window as any).__menu("new-chat"));
+  await expect(page.locator(".temporary-banner")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Message Lodex" })).toHaveValue("Keep my ordinary draft");
+  expect(await page.evaluate(() => sessionStorage.getItem("test-runtime"))).not.toContain("Private temporary words");
+  await page.evaluate(() => (window as any).__menu("settings"));
+  await expect(page.getByRole("dialog")).toContainText("Lodex 0.4.0");
+});
+
+test("voice setup is cancellable and recognition inserts text without sending", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.Worker = class { onmessage: any; onerror: any; constructor() { w.__voiceWorker = this; } postMessage(value: any) { if (value.type === "prepare") setTimeout(() => this.onmessage({ data: { type: "ready" } }), 10); } terminate() { w.__voiceTerminated = true; } };
+  });
+  await page.getByTitle("Voice to text", { exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Download the speech model once");
+  await page.getByTitle("Close voice setup").click();
+  await page.getByTitle("Voice to text", { exact: true }).click();
+  await page.getByRole("button", { name: "Set up voice typing" }).click();
+  await expect(page.getByRole("status")).toContainText("Ready.");
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("My draft:");
+  await page.evaluate(() => (window as any).__voiceWorker.onmessage({ data: { type: "text", text: "These are my dictated words." } }));
+  await expect(page.getByRole("textbox", { name: "Message Lodex" })).toHaveValue("My draft: These are my dictated words.");
+  expect(await page.evaluate(() => (window as any).__requests.some((r: any) => r.method === "turn/start"))).toBe(false);
 });

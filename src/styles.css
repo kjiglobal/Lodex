@@ -601,3 +601,71 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .text-attachment { width: min(380px, 100%); border: 1px solid var(--border); border-radius: 14px; margin-top: 8px; font-size: 13px; }
 .text-attachment summary { display: flex; align-items: center; gap: 8px; padding: 14px; cursor: pointer; }
 .text-attachment pre { max-height: 220px; overflow: auto; margin: 0; padding: 12px; border-top: 1px solid var(--border); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+
+/* Desktop navigation and prompt controls, 0.4. */
+.product-dropdown { position: relative; margin: 0 0 18px 2px; z-index: 90; }
+.product-trigger { display: flex; align-items: center; gap: 10px; padding: 8px 13px; border: 0; border-radius: 24px; color: var(--text); background: var(--hover); font-size: 22px; font-weight: 550; cursor: pointer; }
+.product-menu { position: absolute; top: 53px; left: 0; width: 302px; padding: 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow); }
+.product-menu button { display: flex; width: 100%; align-items: center; gap: 12px; text-align: left; padding: 14px 12px; background: none; border: 0; border-radius: 14px; font-size: 17px; cursor: pointer; }
+.product-menu button:hover { background: var(--hover); }
+.product-menu button > span { flex: 1; }
+.product-menu small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.sidebar-nav { margin-bottom: 12px; }
+.thread-list section { margin-bottom: 12px; }
+.section-toggle { display: flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 9px; color: var(--muted); font-size: 13px; font-weight: 550; border: 0; background: none; cursor: pointer; }
+.section-toggle[aria-expanded="false"] svg, .project-row .icon-button[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.section-heading { display: flex; align-items: center; justify-content: space-between; }
+.sidebar .section-heading { margin-bottom: 0; }
+.sidebar .section-heading .section-toggle { color: var(--muted); font-size: 13px; }
+.sidebar-empty { margin: 4px 9px 10px; font-size: 11px; line-height: 1.6; color: var(--faint); }
+.project-row { display: flex; align-items: center; min-width: 0; border-radius: 9px; }
+.project-row:hover { background: var(--hover); }
+.project-row .icon-button { flex: 0 0 25px; width: 25px; }
+.project-link { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 7px 6px 7px 0; text-align: left; border: 0; background: none; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
+.project-link small { margin-left: auto; color: var(--faint); }
+.project-chats { margin-left: 13px; border-left: 1px solid var(--border); padding-left: 4px; }
+.composer-actions { gap: 8px; flex-wrap: wrap; }
+.composer-right-controls { display: flex; align-items: center; gap: 7px; min-width: 0; margin-left: auto; }
+.prompt-control { position: relative; min-width: 0; }
+.prompt-control-trigger { display: flex; align-items: center; gap: 7px; max-width: 100%; border: 0; border-radius: 10px; padding: 8px 5px; font-size: 13px; background: none; white-space: nowrap; cursor: pointer; }
+.prompt-control-trigger:hover { background: var(--hover); }
+.prompt-control-trigger.full-access { color: #dd5900; }
+[data-theme="dark"] .prompt-control-trigger.full-access { color: #ffa565; }
+.prompt-effort { color: var(--muted); }
+.prompt-model-name { overflow: hidden; text-overflow: ellipsis; max-width: 205px; }
+.prompt-options { position: absolute; z-index: 90; bottom: 46px; right: 0; width: 325px; max-width: calc(100vw - 40px); max-height: min(430px, 55vh); overflow: auto; padding: 7px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); }
+.prompt-control.access .prompt-options { left: -35px; right: auto; }
+.prompt-options > button { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; padding: 11px 12px; text-align: left; border: 0; border-radius: 10px; background: none; font-size: 13px; cursor: pointer; }
+.prompt-options > button:hover { background: var(--hover); }
+.prompt-options > button > span { min-width: 0; }
+.prompt-options > button > svg { flex-shrink: 0; }
+.prompt-options small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); line-height: 1.55; }
+.prompt-options-heading { font-size: 11px; margin: 8px 12px 4px; color: var(--muted); }
+.dictation-control { position: relative; }
+.dictation-button.recording { color: var(--danger); background: var(--hover); }
+.dictation-popover { position: absolute; z-index: 91; right: -35px; bottom: 46px; width: 300px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); font-size: 13px; }
+.dictation-popover p { color: var(--muted); line-height: 1.6; margin: 4px 0 12px; }
+.dictation-popover .icon-button { float: right; }
+.temporary-banner { text-align: center; padding: 8px 20px; font-size: 12px; color: var(--muted); background: var(--surface-soft); }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 1000px) {
+  .prompt-model-name { max-width: 125px; }
+  .prompt-control-trigger { font-size: 12px; gap: 5px; }
+  .composer-menu-wrap { gap: 2px; }
+  .composer-right-controls { gap: 2px; }
+}
+@media (max-width: 760px) {
+  .composer-actions { row-gap: 3px; }
+  .composer-right-controls { flex: 1 1 auto; justify-content: flex-end; }
+  .prompt-effort { font-size: 11px; }
+  .prompt-model-name { max-width: 150px; }
+}
+@media (max-height: 720px) {
+  .sidebar-brand { height: 32px; margin-bottom: 4px; }
+  .product-dropdown { margin-bottom: 8px; }
+  .sidebar-nav { margin-bottom: 4px; padding-bottom: 0; }
+  .sidebar .sidebar-empty { display: none; }
+  .thread-list section { margin-bottom: 4px; }
+  .sidebar-footer-actions { padding-top: 4px; padding-bottom: 4px; }
+}
