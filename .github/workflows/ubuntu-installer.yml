@@ -58,4 +58,10 @@ jobs:
             release/SHA256SUMS
             release/ubuntu-smoke.log
             release/ubuntu-smoke.png
-            test-results/*.png
+      - name: Save interface verification screenshots
+        uses: actions/upload-artifact@v4
+        if: always() && inputs.verify_run == ''
+        with:
+          name: Lodex-UI-regression-screenshots
+          if-no-files-found: ignore
+          path: test-results/*.png
