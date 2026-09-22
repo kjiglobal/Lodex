@@ -21,6 +21,7 @@ import { ApprovalDialog } from "./components/ApprovalDialog";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { Composer } from "./components/Composer";
 import { GoalDialog } from "./components/GoalDialog";
+import { LodexLogo } from "./components/LodexLogo";
 import { MessageList } from "./components/MessageList";
 import { Sidebar } from "./components/Sidebar";
 import { TerminalPanel } from "./components/TerminalPanel";
@@ -852,7 +853,7 @@ export default function App() {
         <div className={`conversation-area ${empty ? "empty-conversation" : ""}`}>
           {empty ? (
             <div className="welcome">
-              <div className="welcome-mark">L</div>
+              <LodexLogo className="welcome-mark" />
               <h1>{accountState.account ? welcomeTitle : "Your AI workspace for Linux"}</h1>
               <p>{accountState.account ? welcomeCopy : "Use your ChatGPT account with native chat, long-running work, project tools, images, Git, and a terminal."}</p>
               {!accountState.account && accountState.requiresOpenaiAuth ? (
