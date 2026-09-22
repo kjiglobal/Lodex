@@ -1,5 +1,7 @@
 # Lodex
 
+<img src="src/assets/lodex-logo.png" alt="Lodex logo" width="96" />
+
 Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversation experience with Codex-style project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for authentication, agent turns, approvals, models, and terminal sessions.
 
 ## Lodex 0.4.1 capabilities
@@ -24,7 +26,7 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Git branch/status, staged and unstaged changes, diffs, stage, and unstage.
 - Local image attachments and generated-image rendering.
 - Command, file-change, permission, and user-input approval surfaces.
-- Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
+- Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure.
 - Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Shift+N` starts a temporary chat, and `Ctrl/Cmd+O` opens a project.
 
 The latest stable release is [Lodex 0.4.1 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.1). It has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. See [the 0.4.1 release notes](docs/RELEASE-0.4.1.md) for changes and feature limits.
@@ -130,6 +132,8 @@ npm audit
 ```
 
 Set `LODEX_CODEX_PATH` to an explicit `codex` executable to test a locally built runtime instead of the bundled npm package.
+
+The shared logo source is `src/assets/lodex-logo.png`. Run `npm run generate:icon` after changing it to refresh `build/icon.png`, which is used by the Ubuntu launcher and native application windows. The renderer, startup screen, and favicon use the source image directly.
 
 ## Scope and compatibility
 
