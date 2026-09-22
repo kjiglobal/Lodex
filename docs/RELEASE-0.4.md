@@ -1,4 +1,6 @@
-# Lodex 0.4 — Ubuntu desktop controls
+# Lodex 0.4.0 release notes
+
+[Lodex 0.4.0 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0) is the latest stable release. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/Lodex-0.4.0-amd64.deb), close Lodex if it is running, and open the package in App Center / Software Install to install or upgrade. Check **Help → Lodex 0.4.0** afterward. A [SHA-256 checksum](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/SHA256SUMS) is included with the release.
 
 - Paste screenshots and images directly into the prompt with Ctrl+V. Images show previews, can be removed, and remain with ordinary drafts after a reload. File attachments and clipboard text continue to work.
 - Collapsible Pinned, Projects, and Recents sections. Projects contain chats from opened folders, and pinned chats stay at the top.

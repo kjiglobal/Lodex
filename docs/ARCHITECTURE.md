@@ -55,7 +55,7 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 
 Linux packages must be built on Linux. That ensures npm installs the correct platform-specific Codex binary before Electron Builder creates the AppImage and Debian package. Cross-building from Windows is intentionally not the release path because the Windows npm install contains the Windows Codex runtime.
 
-## Reliability and 0.3 client state
+## Reliability and client state
 
 Renderer input is normalized before display, including object-shaped `PatchChangeKind` values. Item error boundaries contain a bad activity; the app boundary offers a recovery screen. Token chunks are batched, command previews are capped, transcript rendering is paged, and Monaco is loaded on demand.
 
@@ -69,4 +69,4 @@ Temporary chats pass `ephemeral: true` to `thread/start`, keep drafts in React s
 
 Dictation records microphone audio only after the microphone button is pressed. A one-time model setup precedes recording. Audio is capped at one minute, resampled to 16 kHz mono, checked for silence, and sent to a dedicated CPU/WASM Whisper worker. It never reaches the OpenAI service or disk. The worker fetches public model files from Hugging Face; application code and WASM are bundled. CSP permits only the model host/CDN in addition to existing OpenAI connections. Cancellation/unmount terminates the worker and releases audio tracks. Only the resulting editable text can be sent as a normal chat message.
 
-See [0.3 release notes](RELEASE-0.3.md) for the supported feature boundary and test workflow.
+See [0.4 release notes](RELEASE-0.4.md) for the current supported features, compatibility, and verification workflow. The [0.3 release notes](RELEASE-0.3.md) document the earlier recovery improvements.

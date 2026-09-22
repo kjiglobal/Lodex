@@ -2,7 +2,7 @@
 
 Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversation experience with Codex-style project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for authentication, agent turns, approvals, models, and terminal sessions.
 
-## Lodex 0.4 capabilities
+## Lodex 0.4.0 capabilities
 
 - Recovery from renderer crashes, saved drafts, safer streamed activity, and Linux software rendering by default.
 - Clipboard image pasting with previews and saved drafts; collapsible Pinned, Projects, and Recents.
@@ -26,14 +26,16 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
 - Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Shift+N` starts a temporary chat, and `Ctrl/Cmd+O` opens a project.
 
-The [Lodex 0.4 Ubuntu preview](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0) has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. [Download its installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/Lodex-0.4.0-amd64.deb), open it in App Center / Software Install, and choose Install to upgrade. See [the 0.4 release notes](docs/RELEASE-0.4.md) for changes and feature limits. The stable 0.3 installer remains available below.
+The latest stable release is [Lodex 0.4.0 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0). It has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. See [the 0.4 release notes](docs/RELEASE-0.4.md) for changes and feature limits.
 
-## Install the stable version on Ubuntu (no terminal needed)
+## Install Lodex 0.4.0 on Ubuntu (no terminal needed)
 
-1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.3.0/Lodex-0.3.0-amd64.deb) on your Ubuntu laptop.
-2. Open **Downloads** and double-click **Lodex-0.3.0-amd64.deb**.
+1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/Lodex-0.4.0-amd64.deb) on your Ubuntu laptop.
+2. Open **Downloads** and double-click **Lodex-0.4.0-amd64.deb**.
 3. Click **Install** in App Center / Software Install and enter your Ubuntu password when asked.
 4. Open **Lodex** from the applications menu, then choose **Sign in with ChatGPT**.
+
+To upgrade an earlier version, close Lodex and install this package using the same steps. Your existing chats and preferences are retained. Open **Help** to check that the installed version is **Lodex 0.4.0**. The release also includes a [SHA-256 checksum](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/SHA256SUMS).
 
 This installer is for **Ubuntu 24.04 or newer on Intel/AMD 64-bit laptops**. It includes Electron and the Linux Codex runtime; you do not need Node.js, npm, a global Codex installation, or an API key. Ubuntu installs the package's system dependencies automatically, so keep an internet connection available during installation. A ChatGPT account with Codex access is required to use the app.
 
@@ -85,8 +87,17 @@ The **Ubuntu installer** GitHub Actions workflow builds on Ubuntu 24.04, install
 1. Select **Sign in with ChatGPT**.
 2. Complete the official browser flow with the same ChatGPT credentials you normally use.
 3. Choose **ChatGPT** for Chat or Work, or choose **Codex** for project work.
-4. In Build mode, select **Open project** and choose a local repository.
-5. Start a task. Keep the default **Ask** approval policy until you are comfortable with the commands and edits being proposed.
+4. For project work, select **Open folder** (or **File → Open Folder**) and choose a local repository.
+5. Choose the model and reasoning effort below the prompt. The access control shows **Read only**, **Project access**, or **Full access**. Chat starts with read-only access; Work and Codex start with project access. **Full access** allows actions without approval prompts.
+
+## Using the 0.4 controls
+
+- **Paste images:** copy a screenshot or image, focus the prompt, and press **Ctrl+V**. Review the thumbnail before sending; remove an unwanted image with its remove button.
+- **Find chats:** expand **Pinned**, **Projects**, or **Recents** in the sidebar. The ChatGPT/Codex dropdown switches workflows.
+- **Manage windows and chats:** use **File** for New Window, New Chat, New Temporary Chat, Open Folder, Close, Log Out, and Quit Lodex. Temporary chats do not appear in local history or save drafts.
+- **Model information:** open the model dropdown below the prompt to see the models available to your account, their descriptions, supported inputs, and reasoning choices.
+- **Voice typing:** click the microphone and complete its one-time setup (approximately 80 MB). Click to record, stop to transcribe, and edit the inserted text before sending. Recording stops after one minute. Transcription runs locally and can work offline once the model is cached; sending a chat still requires an internet connection.
+- **Version and settings:** open **Help** to see the installed version or open About Lodex, Settings, and Diagnostics.
 
 ChatGPT-managed credentials and task history are maintained by Codex under its normal local state directory (`~/.codex`). Lodex stores UI preferences such as the last opened project, theme, and locally pinned chats in its Electron user-data or browser storage. Pin state is local to Lodex; archived and renamed chats are persisted by Codex.
 
