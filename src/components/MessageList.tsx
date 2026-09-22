@@ -20,6 +20,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThreadItem, UserInput } from "../types";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { LodexLogo } from "./LodexLogo";
 
 type Props = {
   items: ThreadItem[];
@@ -135,7 +136,7 @@ const MessageItem = memo(function MessageItem({ item, onEdit, onRegenerate, canR
   if (item.type === "agentMessage") {
     return (
       <div className={`message assistant-message ${item.phase === "commentary" ? "commentary-message" : ""}`}>
-        <div className="assistant-mark">L</div>
+        <LodexLogo className="assistant-mark" />
         <div className="message-body">
           <Markdown>{item.text || ""}</Markdown>
           {item.text && item.phase !== "commentary" && (
@@ -168,7 +169,7 @@ const MessageItem = memo(function MessageItem({ item, onEdit, onRegenerate, canR
 
   if (item.type === "exitedReviewMode") {
     const review = typeof item.review === "string" ? item.review : "Review completed";
-    return <div className="message assistant-message"><div className="assistant-mark">L</div><div className="message-body"><Markdown>{review}</Markdown></div></div>;
+    return <div className="message assistant-message"><LodexLogo className="assistant-mark" /><div className="message-body"><Markdown>{review}</Markdown></div></div>;
   }
 
   if (item.type === "imageGeneration" && item.savedPath) {

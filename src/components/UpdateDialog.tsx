@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, CircleCheck, RefreshCw, X } from "lucide-react";
 import type { UpdateState } from "../types";
+import { LodexLogo } from "./LodexLogo";
 
 export function UpdateDialog({ checkOnOpen, onClose }: { checkOnOpen: boolean; onClose(): void }) {
   const [state, setState] = useState<UpdateState | null>(null);
@@ -41,7 +42,7 @@ export function UpdateDialog({ checkOnOpen, onClose }: { checkOnOpen: boolean; o
       }
     }}>
       <header><h2 id="update-title">About Lodex</h2><button className="icon-button" title="Close update window" onClick={onClose}><X size={20} /></button></header>
-      <div className="update-brand" aria-hidden="true">L</div>
+      <LodexLogo className="update-brand" />
       <h3>Lodex</h3><p className="update-version">Version {state?.currentVersion || "…"}</p>
       <p className="update-description">An independent Ubuntu client for your ChatGPT account.</p>
       <div className="update-status" role="status" aria-live="polite">

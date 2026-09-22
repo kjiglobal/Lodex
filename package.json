@@ -65,7 +65,10 @@
       "buildResources": "build"
     },
     "asar": true,
-    "extraResources": [{ "from": "build/update-helper.py", "to": "update-helper.py" }],
+    "extraResources": [
+      { "from": "build/update-helper.py", "to": "update-helper.py" },
+      { "from": "build/icon.png", "to": "icon.png" }
+    ],
     "icon": "build/icon.png",
     "asarUnpack": [
       "node_modules/@openai/codex/**/*",

@@ -55,16 +55,12 @@ button { color: inherit; }
 }
 .sidebar-collapsed { flex-basis: 54px; align-items: center; gap: 8px; padding-top: 14px; }
 .sidebar-brand { display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 5px 10px; font-size: 15px; font-weight: 650; }
-.brand-mark, .welcome-mark, .assistant-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #f8f8f5;
-  background: #191918;
-  font-family: Georgia, serif;
-  font-weight: 700;
+.lodex-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
 }
-.brand-mark { width: 26px; height: 26px; border-radius: 8px; font-size: 14px; }
+.brand-mark { width: 26px; height: 26px; border-radius: 8px; }
 .sidebar-close { margin-left: auto; }
 .new-task-button, .workspace-button, .account-signin {
   display: flex;
@@ -119,7 +115,7 @@ button { color: inherit; }
 .message-images { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; margin-bottom: 7px; }
 .message-images img { width: 150px; max-height: 150px; border: 1px solid var(--border); border-radius: 12px; object-fit: cover; }
 .assistant-message { align-items: flex-start; gap: 12px; }
-.assistant-mark { flex: 0 0 25px; height: 25px; margin-top: 1px; border-radius: 8px; font-size: 12px; }
+.assistant-mark { flex: 0 0 25px; width: 25px; height: 25px; margin-top: 1px; border-radius: 8px; }
 .message-body { min-width: 0; color: #292927; font-size: 14px; line-height: 1.66; }
 .commentary-message .message-body { color: #666660; font-size: 13px; }
 .message-body p { margin: 0 0 13px; }
@@ -146,7 +142,7 @@ button { color: inherit; }
 .loader { width: 17px; height: 17px; border: 2px solid #deded9; border-top-color: #60605a; border-radius: 50%; animation: rotate .8s linear infinite; }
 
 .welcome { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding: 40px 40px 14px; text-align: center; }
-.welcome-mark { width: 49px; height: 49px; border-radius: 15px; font-size: 23px; box-shadow: 0 7px 22px #00000018; }
+.welcome-mark { width: 49px; height: 49px; border-radius: 15px; box-shadow: 0 7px 22px #00000018; }
 .welcome h1 { margin: 18px 0 8px; font-size: clamp(24px, 3vw, 32px); font-weight: 560; letter-spacing: -.035em; }
 .welcome > p { max-width: 565px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .signin-button, .primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 550; }
@@ -315,7 +311,6 @@ body, button, input, textarea, select { color: var(--text); }
 .tool-details { border-color: var(--border-soft); background: var(--surface-soft); }
 
 .welcome { padding-top: 52px; }
-.welcome-mark { background: linear-gradient(145deg, #20201e, #494944); }
 .welcome h1 { font-size: clamp(28px, 3vw, 38px); font-weight: 590; }
 .suggestion-grid { width: min(690px, 100%); }
 .suggestion-grid button { min-height: 64px; border-color: var(--border-soft); background: var(--surface); box-shadow: 0 1px 2px #00000008; }
@@ -391,10 +386,6 @@ body, button, input, textarea, select { color: var(--text); }
 .secondary-button:hover { background: var(--hover); }
 .primary-button, .signin-button { border-color: var(--text); color: var(--surface); background: var(--text); }
 
-:root[data-theme="dark"] .brand-mark,
-:root[data-theme="dark"] .welcome-mark,
-:root[data-theme="dark"] .assistant-mark { color: #1a1a19; background: #f0f0ec; }
-:root[data-theme="dark"] .welcome-mark { background: linear-gradient(145deg, #f2f2ee, #a9aaa3); }
 :root[data-theme="dark"] .code-block,
 :root[data-theme="dark"] .approval-command { border-color: #4a4a46; background: #111110; }
 :root[data-theme="dark"] .workspace-panel,
@@ -663,7 +654,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 }
 .update-dialog { max-width: 480px; text-align: center; outline: none; }
 .update-dialog header { text-align: left; }
-.update-brand { display: grid; place-items: center; width: 48px; height: 48px; margin: 12px auto; background: var(--text); color: var(--bg); border-radius: 14px; font-size: 27px; font-weight: 650; }
+.update-brand { width: 48px; height: 48px; margin: 12px auto; border-radius: 14px; }
 .update-dialog h3 { margin: 10px 0 4px; font-size: 24px; }
 .update-version, .update-description, .update-hint { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .update-status { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 22px; padding: 14px; background: var(--panel); border-radius: 12px; font-size: 14px; line-height: 1.6; }

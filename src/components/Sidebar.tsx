@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Account, AccountUsage, RateLimits, SurfaceMode, Thread } from "../types";
+import { LodexLogo } from "./LodexLogo";
 
 type Props = {
   threads: Thread[];
@@ -162,7 +163,7 @@ export function Sidebar({
   if (collapsed) {
     return (
       <aside className="sidebar sidebar-collapsed">
-        <div className="brand-mark small">L</div>
+        <LodexLogo className="brand-mark small" alt="Lodex" />
         <button className="icon-button" onClick={onToggle} title="Open sidebar"><MessageSquare size={19} /></button>
         <button className="icon-button" disabled={busy} onClick={onNew} title="New chat"><PenLine size={19} /></button>
         <button className="icon-button" onClick={onSettings} title="Settings"><Settings size={19} /></button>
@@ -192,7 +193,7 @@ export function Sidebar({
       if (!(event.target as HTMLElement).closest(".thread-row")) setOpenMenu(null);
     }}>
       <div className="sidebar-brand">
-        <div className="brand-mark">L</div>
+        <LodexLogo className="brand-mark" />
         <span>Lodex</span>
         <button className="icon-button sidebar-close" onClick={onToggle} title="Close sidebar"><PanelLeftClose size={18} /></button>
       </div>

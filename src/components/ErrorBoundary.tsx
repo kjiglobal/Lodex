@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { LodexLogo } from "./LodexLogo";
 
 export class ErrorBoundary extends Component<{ children: ReactNode; compact?: boolean }, { failed: boolean }> {
   state = { failed: false };
@@ -16,7 +17,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; compact?: bo
       return <div className="message-error" role="alert">This activity could not be displayed. Your chat is still available.</div>;
     }
     return <main className="recovery-screen" role="alert">
-      <div className="brand-mark">L</div>
+      <LodexLogo className="brand-mark" />
       <h1>Let’s get your chat back.</h1>
       <p>Lodex couldn’t display this view. Reload to reopen your conversation and saved draft.</p>
       <button className="primary-button" onClick={() => window.location.reload()}>Reload Lodex</button>
