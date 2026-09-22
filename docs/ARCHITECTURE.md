@@ -54,3 +54,15 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 ## Packaging
 
 Linux packages must be built on Linux. That ensures npm installs the correct platform-specific Codex binary before Electron Builder creates the AppImage and Debian package. Cross-building from Windows is intentionally not the release path because the Windows npm install contains the Windows Codex runtime.
+
+## Reliability and 0.3 client state
+
+Renderer input is normalized before display, including object-shaped `PatchChangeKind` values. Item error boundaries contain a bad activity; the app boundary offers a recovery screen. Token chunks are batched, command previews are capped, transcript rendering is paged, and Monaco is loaded on demand.
+
+Electron retains the app-server and unresolved approval requests across renderer reloads. The renderer restores its active thread with `thread/resume` and never replays `turn/start`. Drafts and mode preferences live in local storage. The main process bounds automatic crash reloads and records category-only diagnostics. Linux uses software rendering by default.
+
+Chat editing and retry use `thread/read` plus `thread/fork` through the preceding completed turn (or a new thread for the first prompt), never destructive rollback. Continuing a thread retains that thread's working directory rather than redirecting it to whichever project was most recently selected.
+
+Attachments must first be selected through a native file dialog. The main process verifies the selected paths and size limits before constructing runtime input. Approved attachment paths persist so drafts can recover after a restart. Runtime-produced image paths are authorized only when the runtime references them in generated-image items. Chat export uses a native Save dialog and writes Markdown only to the chosen destination.
+
+See [0.3 release notes](RELEASE-0.3.md) for the supported feature boundary and test workflow.

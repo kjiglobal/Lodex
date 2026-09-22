@@ -1,0 +1,195 @@
+import { test, expect, type Page } from "@playwright/test";
+
+async function setup(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as any;
+    const listeners = new Set<(event: any) => void>();
+    const read = () => JSON.parse(sessionStorage.getItem("test-runtime") || "null");
+    const initial = {
+      id: "saved-chat", name: "Planning a weekend", preview: "First question", cwd: "/project", createdAt: 1, updatedAt: 1,
+      status: { type: "idle" }, turns: [
+        { id: "turn-1", status: "completed", items: [{ id: "user-1", type: "userMessage", content: [{ type: "text", text: "First question" }] }, { id: "answer-1", type: "agentMessage", text: "First answer", phase: "final_answer" }] },
+        { id: "turn-2", status: "completed", items: [{ id: "user-2", type: "userMessage", content: [{ type: "text", text: "Second question" }] }, { id: "answer-2", type: "agentMessage", text: "Second answer", phase: "final_answer" }] },
+      ],
+    };
+    let threads = read() || [initial];
+    const save = () => sessionStorage.setItem("test-runtime", JSON.stringify(threads));
+    w.__requests = [];
+    w.__emit = (event: any) => { for (const listener of listeners) listener(event); };
+    w.__finish = () => { const thread = threads.at(-1); thread.status = { type: "idle" }; const turn = thread.turns.at(-1); turn.status = "completed"; save(); w.__emit({ method: "turn/completed", params: { threadId: thread.id, turn } }); };
+    w.lodex = {
+      platform: "linux",
+      app: { reportError: (category: string) => { w.__reported = [...(w.__reported || []), category]; }, info: async () => ({ version: "0.3.0", softwareRendering: true }), openDiagnostics: async () => {}, exportChat: async (title: string, content: string) => { w.__export = { title, content }; return true; } },
+      codex: {
+        request: async (method: string, params: any = {}) => {
+          w.__requests.push({ method, params });
+          if (method === "account/read") return { account: { email: "test@example.com", planType: "Plus" }, requiresOpenaiAuth: true };
+          if (method === "model/list") return { data: [{ id: "test-model", model: "test-model", displayName: "Test model", isDefault: true, defaultReasoningEffort: "medium", supportedReasoningEfforts: [{ reasoningEffort: "medium" }, { reasoningEffort: "high" }] }] };
+          if (method === "thread/list") return { data: params.archived ? [{ ...initial, id: "archived-chat", name: "Archived example" }] : threads };
+          if (method === "thread/read" || method === "thread/resume") return { thread: threads.find((t: any) => t.id === params.threadId) };
+          if (method === "thread/goal/get") return { goal: null };
+          if (method === "thread/start" || method === "thread/fork") {
+            let turns: any[] = [];
+            if (method === "thread/fork") {
+              const source = threads.find((t: any) => t.id === params.threadId);
+              const index = params.lastTurnId ? source.turns.findIndex((turn: any) => turn.id === params.lastTurnId) : source.turns.length - 1;
+              turns = JSON.parse(JSON.stringify(source.turns.slice(0, index + 1)));
+            }
+            const thread = { ...initial, id: "new-" + threads.length, name: "New conversation", turns };
+            threads.push(thread); save(); return { thread };
+          }
+          if (method === "turn/start") {
+            if (w.__failSend) throw new Error("Test connection interrupted");
+            const thread = threads.find((t: any) => t.id === params.threadId);
+            const turn = { id: "running-turn", status: "inProgress", items: [{ id: "live-user", type: "userMessage", content: params.input }] };
+            thread.turns.push(turn); thread.status = { type: "active" }; save();
+            w.__emit({ method: "turn/started", params: { threadId: thread.id, turn } });
+            w.__emit({ method: "item/started", params: { threadId: thread.id, item: turn.items[0] } });
+            return { turn };
+          }
+          if (method === "thread/name/set") { threads.find((t: any) => t.id === params.threadId).name = params.name; save(); }
+          if (method === "account/rateLimits/read") return { rateLimits: { primary: { usedPercent: 18 } } };
+          if (method === "app/list" || method === "skills/list") return { data: [] };
+          if (method === "turn/interrupt") w.__finish();
+          return {};
+        },
+        respond: () => {},
+        onEvent: (callback: any) => { listeners.add(callback); return () => listeners.delete(callback); },
+        onStatus: () => () => {},
+        pendingRequests: async () => JSON.parse(sessionStorage.getItem("test-approvals") || "[]"),
+      },
+      auth: { loginWithChatGPT: async () => {}, logout: async () => {} },
+      workspace: { current: async () => null, choose: async () => null, tree: async () => [], imageUrl: () => "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+        chooseAttachments: async () => [{ path: "/notes.txt", name: "notes.txt", kind: "file", size: 20 }],
+        attachmentInputs: async (files: any[]) => files.map(file => ({ type: "text", text: "Attached file: " + file.name + "\nSample notes", text_elements: [] })),
+      }, git: { status: async () => null },
+    };
+  });
+  await page.goto("/");
+  await expect(page.getByRole("textbox", { name: "Message Lodex" })).toBeEnabled();
+}
+
+async function start(page: Page) {
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("Help me with this project");
+  await page.getByTitle("Send message", { exact: true }).click();
+  await expect(page.getByTitle("Stop response")).toBeVisible();
+}
+
+test("file-change objects and mixed streamed activity never blank the window", async ({ page }) => {
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  await setup(page); await start(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__emit({ method: "item/started", params: { threadId: "new-1", item: { id: "patch", type: "fileChange", status: "inProgress", changes: [{ path: "src/app.ts", kind: { type: "update", move_path: null } }] } } });
+    for (let i = 0; i < 300; i++) w.__emit({ method: "item/agentMessage/delta", params: { threadId: "new-1", itemId: "stream", delta: "hello " } });
+    w.__emit({ method: "item/completed", params: { threadId: "new-1", item: { id: "stream", type: "agentMessage", text: "Finished reviewing your project.", phase: "final_answer" } } });
+  });
+  await page.getByRole("button", { name: /1 file change/ }).click();
+  await expect(page.locator(".change-row")).toContainText("update");
+  await expect(page.locator(".change-row")).toContainText("src/app.ts");
+  await expect(page.locator(".assistant-message")).toContainText("Finished reviewing your project.");
+  await expect(page.locator(".composer")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("large command streams stay bounded and unexpected fields are contained", async ({ page }) => {
+  await setup(page); await start(page);
+  await page.evaluate(() => {
+    const emit = (window as any).__emit;
+    emit({ method: "item/started", params: { threadId: "new-1", item: { id: "cmd", type: "commandExecution", command: "Build project", status: "inProgress" } } });
+    for (let i = 0; i < 150; i++) emit({ method: "item/commandExecution/outputDelta", params: { threadId: "new-1", itemId: "cmd", delta: "x".repeat(1000) } });
+    emit({ method: "item/started", params: { threadId: "new-1", item: { id: "odd", type: "fileChange", changes: [{ path: "a.ts", kind: { unexpected: true } }], command: { unexpected: true } } } });
+  });
+  await page.getByRole("button", { name: "Build project" }).click();
+  await expect(page.locator(".tool-details pre")).toHaveText("x".repeat(64000));
+  await page.getByRole("button", { name: /1 file change/ }).click();
+  await expect(page.locator(".change-row")).toContainText("change");
+  await expect(page.locator(".composer")).toBeVisible();
+});
+
+test("draft and active turn recover after reload, with pending approval", async ({ page }) => {
+  await setup(page); await start(page);
+  const input = page.getByRole("textbox", { name: "Message Lodex" });
+  await input.fill("My next question is saved");
+  await input.press("Enter");
+  expect(await page.evaluate(() => (window as any).__requests.filter((r: any) => r.method === "turn/start").length)).toBe(1);
+  await page.evaluate(() => sessionStorage.setItem("test-approvals", JSON.stringify([{ id: 41, method: "item/fileChange/requestApproval", params: { threadId: "new-1" } }])));
+  await page.reload();
+  await expect(input).toHaveValue("My next question is saved");
+  await expect(page.getByTitle("Stop response")).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("Apply these changes?");
+  expect(await page.evaluate(() => (window as any).__requests.filter((r: any) => r.method === "turn/start").length)).toBe(0);
+});
+
+test("failed send keeps the draft even after reload", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => { (window as any).__failSend = true; });
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("Do not lose this text");
+  await page.getByTitle("Send message", { exact: true }).click();
+  await expect(page.locator(".composer-error")).toContainText("Test connection interrupted");
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Message Lodex" })).toHaveValue("Do not lose this text");
+});
+
+test("attachments reach the turn and settings persist", async ({ page }) => {
+  await setup(page);
+  await page.getByRole("button", { name: "Add photos, files and tools" }).click();
+  await page.getByRole("menuitem", { name: /Add photos and files/ }).click();
+  await expect(page.locator(".attachment")).toContainText("notes.txt");
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.getByLabel("Appearance").selectOption("dark");
+  await page.getByLabel("Custom instructions", { exact: false }).fill("Use plain language.");
+  await page.getByTitle("Close settings").click();
+  await page.getByRole("textbox", { name: "Message Lodex" }).fill("Summarize my notes");
+  await page.getByTitle("Send message", { exact: true }).click();
+  const requests = await page.evaluate(() => (window as any).__requests);
+  expect(requests.find((r: any) => r.method === "thread/start").params.developerInstructions).toBe("Use plain language.");
+  expect(requests.find((r: any) => r.method === "turn/start").params.input).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining("Sample notes") })]));
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
+test("edit and retry fork the preceding history without touching the original", async ({ page }) => {
+  await setup(page);
+  await page.getByTitle("Planning a weekend", { exact: true }).click();
+  await expect(page.locator(".assistant-message").last()).toContainText("Second answer");
+  await page.getByTitle("Edit in a new branch").last().click();
+  await page.getByLabel("Edited message", { exact: true }).fill("A different second question");
+  await page.getByRole("button", { name: "Send in new branch" }).click();
+  await expect(page.getByTitle("Stop response")).toBeVisible();
+  const requests = await page.evaluate(() => (window as any).__requests);
+  expect(requests.find((r: any) => r.method === "thread/fork").params.lastTurnId).toBe("turn-1");
+  expect(requests.find((r: any) => r.method === "turn/start").params.input[0].text).toBe("A different second question");
+  expect(requests.some((r: any) => r.method === "thread/rollback")).toBe(false);
+  const original = await page.evaluate(() => JSON.parse(sessionStorage.getItem("test-runtime")!).find((t: any) => t.id === "saved-chat"));
+  expect(original.turns[1].items[0].content[0].text).toBe("Second question");
+});
+
+test("rename, archive restore and Markdown export are usable", async ({ page }) => {
+  await setup(page);
+  await page.getByTitle("Planning a weekend", { exact: true }).click();
+  await page.getByTitle("Chat actions").first().click();
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
+  await page.getByRole("textbox", { name: "Chat name" }).fill("Weekend plans");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByTitle("Weekend plans", { exact: true })).toBeVisible();
+  await page.getByTitle("Chat options", { exact: true }).click();
+  await page.getByTitle("Export chat", { exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__export.content)).toContain("## You\n\nFirst question");
+  await page.getByRole("button", { name: "Archived chats" }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("No archived chats");
+});
+
+test("light, dark and compact layouts keep chat controls visible", async ({ page }) => {
+  await setup(page);
+  await page.screenshot({ path: "test-results/lodex-light.png" });
+  await page.getByRole("button", { name: "Dark mode", exact: true }).click();
+  await page.screenshot({ path: "test-results/lodex-dark.png" });
+  await page.setViewportSize({ width: 900, height: 650 });
+  await expect(page.getByRole("textbox", { name: "Message Lodex" })).toBeInViewport();
+  await expect(page.getByRole("navigation", { name: "Lodex mode" })).toBeInViewport();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(overflow).toBe(false);
+  await page.screenshot({ path: "test-results/lodex-compact.png" });
+});

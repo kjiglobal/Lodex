@@ -8,11 +8,18 @@ const on = (channel: string, callback: (value: unknown) => void) => {
 
 contextBridge.exposeInMainWorld("lodex", {
   platform: process.platform,
+  app: {
+    reportError: (category: string) => ipcRenderer.send("app:report-error", category),
+    openDiagnostics: () => ipcRenderer.invoke("app:open-diagnostics"),
+    exportChat: (title: string, content: string) => ipcRenderer.invoke("app:export-chat", title, content),
+    info: () => ipcRenderer.invoke("app:info"),
+  },
   codex: {
     request: (method: string, params?: unknown) => ipcRenderer.invoke("codex:request", method, params),
     respond: (id: number | string, result: unknown) => ipcRenderer.send("codex:respond", id, result),
     onEvent: (callback: (message: unknown) => void) => on("codex:event", callback),
     onStatus: (callback: (status: unknown) => void) => on("codex:status", callback),
+    pendingRequests: () => ipcRenderer.invoke("codex:pending-requests"),
   },
   auth: {
     loginWithChatGPT: () => ipcRenderer.invoke("auth:login-chatgpt"),
@@ -22,6 +29,8 @@ contextBridge.exposeInMainWorld("lodex", {
     current: () => ipcRenderer.invoke("workspace:current"),
     choose: () => ipcRenderer.invoke("workspace:choose"),
     chooseImages: () => ipcRenderer.invoke("workspace:choose-images"),
+    chooseAttachments: () => ipcRenderer.invoke("workspace:choose-attachments"),
+    attachmentInputs: (attachments: unknown) => ipcRenderer.invoke("workspace:attachment-inputs", attachments),
     tree: () => ipcRenderer.invoke("workspace:tree"),
     read: (filePath: string) => ipcRenderer.invoke("workspace:read", filePath),
     write: (filePath: string, content: string) => ipcRenderer.invoke("workspace:write", filePath, content),

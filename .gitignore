@@ -2,6 +2,9 @@ node_modules/
 dist/
 dist-electron/
 release/
+.protocol-reference/
+test-results/
+playwright-report/
 *.log
 .env
 .env.*

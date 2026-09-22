@@ -14,6 +14,7 @@ import {
   PinOff,
   Search,
   Sun,
+  Settings,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Account, AccountUsage, RateLimits, Thread } from "../types";
@@ -38,6 +39,9 @@ type Props = {
   onOpenTools(): void;
   onSignIn(): void;
   onLogout(): void;
+  onSettings(): void;
+  onArchived(): void;
+  busy: boolean;
 };
 
 const shortPath = (value: string | null) => {
@@ -68,6 +72,8 @@ function ThreadRow({
   onArchive(): void;
 }) {
   const status = thread.status?.type;
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(threadTitle(thread));
   return (
     <div className={`thread-row ${active ? "active" : ""}`}>
       <button className="thread-link" onClick={onSelect} title={threadTitle(thread)}>
@@ -75,11 +81,11 @@ function ThreadRow({
         <span>{threadTitle(thread)}</span>
       </button>
       <button className="thread-menu-button" onClick={onMenu} title="Chat actions"><MoreHorizontal size={16} /></button>
-      {menuOpen && (
+      {renaming && <form className="inline-rename" onSubmit={event => { event.preventDefault(); if (name.trim()) { onRename(name.trim()); setRenaming(false); } }}><input autoFocus aria-label="Chat name" value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === "Escape") setRenaming(false); }} /><button type="submit">Save</button><button type="button" onClick={() => setRenaming(false)}>Cancel</button></form>}
+      {menuOpen && !renaming && (
         <div className="thread-menu" role="menu">
           <button onClick={() => {
-            const next = window.prompt("Rename this chat", threadTitle(thread));
-            if (next?.trim()) onRename(next.trim());
+            setName(threadTitle(thread)); setRenaming(true);
           }}><PenLine size={14} />Rename</button>
           <button onClick={onPin}>{thread.isPinned ? <PinOff size={14} /> : <Pin size={14} />}{thread.isPinned ? "Unpin" : "Pin"}</button>
           <button onClick={onArchive}><Archive size={14} />Archive</button>
@@ -109,6 +115,9 @@ export function Sidebar({
   onOpenTools,
   onSignIn,
   onLogout,
+  onSettings,
+  onArchived,
+  busy,
 }: Props) {
   const [query, setQuery] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -126,7 +135,8 @@ export function Sidebar({
       <aside className="sidebar sidebar-collapsed">
         <div className="brand-mark small">L</div>
         <button className="icon-button" onClick={onToggle} title="Open sidebar"><MessageSquare size={19} /></button>
-        <button className="icon-button" onClick={onNew} title="New chat"><PenLine size={19} /></button>
+        <button className="icon-button" disabled={busy} onClick={onNew} title="New chat"><PenLine size={19} /></button>
+        <button className="icon-button" onClick={onSettings} title="Settings"><Settings size={19} /></button>
         <button className="icon-button sidebar-bottom-action" onClick={onToggleTheme} title={`Use ${theme === "light" ? "dark" : "light"} mode`}>
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
         </button>
@@ -159,15 +169,15 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-primary-actions">
-        <button className="new-task-button" onClick={onNew}><PenLine size={17} /><span>New chat</span></button>
+        <button className="new-task-button" disabled={busy} onClick={onNew}><PenLine size={17} /><span>New chat</span><kbd>Ctrl ⇧ O</kbd></button>
         <label className="sidebar-search-field"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search chats" /></label>
       </div>
 
       <div className="sidebar-nav">
-        <button className="workspace-button" onClick={onOpenWorkspace} title={workspace ?? undefined}>
+        <button className="workspace-button" disabled={busy} onClick={onOpenWorkspace} title={workspace ?? undefined}>
           <FolderGit2 size={16} /><span>{shortPath(workspace)}</span><ChevronDown size={15} />
         </button>
-        <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Tools</span></button>
+        <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Apps and skills</span></button>
       </div>
 
       <nav className="thread-list" aria-label="Chats">
@@ -180,6 +190,8 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer-actions">
+        <button className="theme-button" onClick={onArchived}><Archive size={16} /><span>Archived chats</span></button>
+        <button className="theme-button" onClick={onSettings}><Settings size={16} /><span>Settings</span></button>
         <button className="theme-button" onClick={onToggleTheme}>{theme === "light" ? <Moon size={15} /> : <Sun size={15} />}<span>{theme === "light" ? "Dark mode" : "Light mode"}</span></button>
       </div>
 

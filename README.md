@@ -2,8 +2,10 @@
 
 Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversation experience with Codex-style project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for authentication, agent turns, approvals, models, and terminal sessions.
 
-## Lodex 0.2 capabilities
+## Lodex 0.3 capabilities
 
+- Recovery from renderer crashes, saved drafts, safer streamed activity, and Linux software rendering by default.
+- File attachments, chat export, edit/retry in new branches, archive restore, custom instructions, and keyboard shortcuts.
 - Official **Sign in with ChatGPT** browser flow; Lodex never receives the user's password.
 - Streaming multi-turn conversations with persisted Codex task history.
 - Current model and reasoning-effort selection discovered from the signed-in account.
@@ -19,7 +21,9 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Command, file-change, permission, and user-input approval surfaces.
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
 
-## Install on Ubuntu (no terminal needed)
+See [the 0.3 release notes](docs/RELEASE-0.3.md) for changes, verification, and feature limits. The 0.3 candidate installer is produced by the **Ubuntu installer** workflow; the published download below remains 0.2 until 0.3 is released.
+
+## Install the published version on Ubuntu (no terminal needed)
 
 1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/latest/download/Lodex-0.2.0-amd64.deb) on your Ubuntu laptop.
 2. Open **Downloads** and double-click **Lodex-0.2.0-amd64.deb**.
@@ -57,14 +61,14 @@ Install Node.js 22 (latest 22.x) or newer before running the script. Ubuntu 24.0
 Artifacts are written to `release/`. Install the Debian package:
 
 ```bash
-sudo apt install ./release/Lodex-0.2.0-amd64.deb
+sudo apt install ./release/Lodex-0.3.0-amd64.deb
 ```
 
 Or run the AppImage:
 
 ```bash
-chmod +x release/Lodex-0.2.0-x86_64.AppImage
-./release/Lodex-0.2.0-x86_64.AppImage
+chmod +x release/Lodex-0.3.0-x86_64.AppImage
+./release/Lodex-0.3.0-x86_64.AppImage
 ```
 
 If the VM does not provide FUSE support, run the AppImage with `--appimage-extract-and-run` or use the Debian package.
@@ -93,6 +97,8 @@ Useful checks:
 ```bash
 npm run typecheck
 npm run build
+npx playwright install chromium
+npm test
 npm audit
 ```
 
@@ -100,6 +106,6 @@ Set `LODEX_CODEX_PATH` to an explicit `codex` executable to test a locally built
 
 ## Scope and compatibility
 
-Lodex 0.2 covers the requested chat, goals, plans, activity, apps/skills discovery, editing, terminal, files, images, and Git workflows. It is not a redistribution of the proprietary ChatGPT or Codex desktop applications, and it cannot duplicate private product internals. Voice, screen sharing, Canvas, full browser/computer control, proprietary ChatGPT history synchronization, and undocumented experiments are not yet implemented. The app-server boundary is intentionally isolated so supported features can be added as OpenAI exposes them.
+Lodex 0.3 covers the requested chat, goals, plans, activity, apps/skills discovery, editing, terminal, files, images, and Git workflows. It is not a redistribution of the proprietary ChatGPT or Codex desktop applications, and it cannot duplicate private product internals. Voice, screen sharing, Canvas, full browser/computer control, proprietary ChatGPT history synchronization, and undocumented experiments are not yet implemented. The app-server boundary is intentionally isolated so supported features can be added as OpenAI exposes them.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the security model and implementation map. The integration follows the official [Codex app-server](https://learn.chatgpt.com/docs/app-server) and [authentication](https://learn.chatgpt.com/docs/authentication) documentation.

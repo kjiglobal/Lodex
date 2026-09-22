@@ -1,6 +1,6 @@
 {
   "name": "lodex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A native Linux workspace for ChatGPT and Codex workflows.",
   "homepage": "https://github.com/wwdreamb/Lodex",
@@ -18,11 +18,13 @@
     "dist:linux": "npm run build && electron-builder --linux AppImage deb",
     "dist:ubuntu": "bash scripts/build-linux.sh deb",
     "generate:icon": "node scripts/generate-icon.cjs",
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node --test tests/client.test.cjs && playwright test",
+    "preview:test": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",
-    "@openai/codex": "0.150.1",
+    "@openai/codex": "0.155.1",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "lucide-react": "1.28.0",
@@ -33,6 +35,7 @@
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "24.10.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

@@ -38,7 +38,7 @@ export type ThreadItem = {
   status?: string;
   aggregatedOutput?: string | null;
   exitCode?: number | null;
-  changes?: Array<{ path: string; kind: string; diff?: string }>;
+  changes?: Array<{ path: string; kind: string | { type: string; move_path?: string | null }; diff?: string }>;
   server?: string;
   tool?: string;
   arguments?: unknown;
@@ -157,6 +157,7 @@ export type GitStatus = {
 };
 
 export type AttachedImage = { path: string; name: string };
+export type Attachment = AttachedImage & { kind: "image" | "file"; size?: number };
 
 export type CodexEvent = {
   id?: number | string;
@@ -172,11 +173,18 @@ export type PendingServerRequest = {
 
 export type LodexApi = {
   platform: string;
+  app: {
+    reportError(category: string): void;
+    openDiagnostics(): Promise<void>;
+    exportChat(title: string, content: string): Promise<boolean>;
+    info(): Promise<{ version: string; softwareRendering: boolean }>;
+  };
   codex: {
     request<T = unknown>(method: string, params?: unknown): Promise<T>;
     respond(id: number | string, result: unknown): void;
     onEvent(callback: (message: CodexEvent) => void): () => void;
     onStatus(callback: (status: { state: string; message?: string }) => void): () => void;
+    pendingRequests(): Promise<PendingServerRequest[]>;
   };
   auth: {
     loginWithChatGPT(): Promise<unknown>;
@@ -186,6 +194,8 @@ export type LodexApi = {
     current(): Promise<string | null>;
     choose(): Promise<string | null>;
     chooseImages(): Promise<AttachedImage[]>;
+    chooseAttachments(): Promise<Attachment[]>;
+    attachmentInputs(attachments: Attachment[]): Promise<UserInput[]>;
     tree(): Promise<FileNode[]>;
     read(filePath: string): Promise<{ content: string; path: string }>;
     write(filePath: string, content: string): Promise<void>;

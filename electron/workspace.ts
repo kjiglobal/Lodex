@@ -32,8 +32,16 @@ export type GitFile = {
 export class WorkspaceService {
   private root: string | null = null;
   private allowedImages = new Set<string>();
+  private allowedAttachments = new Set<string>();
 
   async load(): Promise<void> {
+    try {
+      const paths: unknown = JSON.parse(await fs.readFile(path.join(app.getPath("userData"), "attachments.json"), "utf8"));
+      if (Array.isArray(paths)) for (const file of paths) if (typeof file === "string") {
+        this.allowedAttachments.add(file);
+        if (/\.(png|jpe?g|webp|gif)$/i.test(file)) this.allowedImages.add(file);
+      }
+    } catch { /* No attachments yet. */ }
     try {
       const stored = JSON.parse(await fs.readFile(this.preferencesPath(), "utf8")) as { workspace?: string };
       if (stored.workspace && (await fs.stat(stored.workspace)).isDirectory()) this.root = stored.workspace;
@@ -69,6 +77,45 @@ export class WorkspaceService {
     if (result.canceled) return [];
     for (const filePath of result.filePaths) this.allowedImages.add(realpathSync.native(filePath));
     return result.filePaths.map((filePath) => ({ path: filePath, name: path.basename(filePath) }));
+  }
+
+  async chooseAttachments(): Promise<Array<{ path: string; name: string; kind: "image" | "file"; size: number }>> {
+    const result = await dialog.showOpenDialog({
+      title: "Add photos and files", defaultPath: this.root ?? app.getPath("documents"),
+      properties: ["openFile", "multiSelections"],
+    });
+    if (result.canceled) return [];
+    const attachments = await Promise.all(result.filePaths.slice(0, 8).map(async (file) => {
+      const resolved = await fs.realpath(file);
+      const stat = await fs.stat(resolved);
+      if (!stat.isFile() || stat.size > 20 * 1024 * 1024) throw new Error("Choose files smaller than 20 MB.");
+      const kind = /\.(png|jpe?g|webp|gif)$/i.test(file) ? "image" as const : "file" as const;
+      this.allowedAttachments.add(resolved);
+      if (kind === "image") this.allowedImages.add(resolved);
+      return { path: resolved, name: path.basename(file), kind, size: stat.size };
+    }));
+    await fs.mkdir(app.getPath("userData"), { recursive: true });
+    await fs.writeFile(path.join(app.getPath("userData"), "attachments.json"), JSON.stringify([...this.allowedAttachments].slice(-500)), "utf8");
+    return attachments;
+  }
+
+  async attachmentInputs(value: unknown): Promise<unknown[]> {
+    if (!Array.isArray(value) || value.length > 8) throw new Error("Choose up to eight attachments.");
+    return Promise.all(value.map(async (attachment: unknown) => {
+      if (!attachment || typeof attachment !== "object" || !("path" in attachment) || typeof attachment.path !== "string") throw new Error("Invalid attachment.");
+      const file = await fs.realpath(attachment.path);
+      if (!this.allowedAttachments.has(file) && !this.allowedImages.has(file)) throw new Error("Please attach this file again using Add photos and files.");
+      const stat = await fs.stat(file);
+      if (!stat.isFile() || stat.size > 20 * 1024 * 1024) throw new Error("Choose files smaller than 20 MB.");
+      if (/\.(png|jpe?g|webp|gif)$/i.test(file)) return { type: "localImage", path: file, detail: "auto" };
+      if (/\.(txt|md|csv|tsv|json|yaml|yml|xml|log|ts|tsx|js|jsx|py|html|css)$/i.test(file)) {
+        if (stat.size > 512_000) throw new Error("Text attachments must be smaller than 500 KB. Open a project to work with larger files.");
+        return { type: "text", text: `Attached file: ${path.basename(file)}\n\n${await fs.readFile(file, "utf8")}`, text_elements: [] };
+      }
+      // Binary documents are file references; installed runtime tools determine
+      // which formats can be read. Never decode binary documents as UTF-8.
+      return { type: "mention", name: path.basename(file), path: file };
+    }));
   }
 
   async tree(): Promise<FileNode[]> {
@@ -187,6 +234,11 @@ export class WorkspaceService {
     const realRoot = realpathSync.native(this.root);
     const relative = path.relative(realRoot, realPath);
     return !relative.startsWith("..") && !path.isAbsolute(relative);
+  }
+
+  allowGeneratedImage(filePath: unknown): void {
+    if (typeof filePath !== "string" || !/\.(png|jpe?g|webp|gif)$/i.test(filePath)) return;
+    try { this.allowedImages.add(realpathSync.native(filePath)); } catch { /* The file may not exist yet. */ }
   }
 
   private requireRoot(): string {

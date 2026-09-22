@@ -40,6 +40,11 @@ jobs:
           path: release
           run-id: ${{ inputs.verify_run }}
           github-token: ${{ github.token }}
+      - name: Test streaming and recovery regressions
+        if: inputs.verify_run == ''
+        run: |
+          npx playwright install --with-deps chromium
+          npm test
       - name: Install and verify the package
         run: bash scripts/verify-ubuntu-package.sh
       - name: Save installer and verification output
@@ -53,3 +58,4 @@ jobs:
             release/SHA256SUMS
             release/ubuntu-smoke.log
             release/ubuntu-smoke.png
+            test-results/*.png

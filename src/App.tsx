@@ -13,8 +13,13 @@ import {
   Settings2,
   Sparkles,
   TerminalSquare,
+  Download,
+  GitBranch,
+  Settings,
+  X,
+  MoreHorizontal,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalDialog } from "./components/ApprovalDialog";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { Composer } from "./components/Composer";
@@ -23,11 +28,14 @@ import { MessageList } from "./components/MessageList";
 import { Sidebar } from "./components/Sidebar";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ToolsPanel } from "./components/ToolsPanel";
-import { WorkspacePanel } from "./components/WorkspacePanel";
+import { SettingsDialog } from "./components/SettingsDialog";
+import { storage } from "./storage";
+import { normalizeItem } from "./protocol";
+const WorkspacePanel = lazy(() => import("./components/WorkspacePanel").then(module => ({ default: module.WorkspacePanel })));
 import type {
   AccountUsage,
   AccountState,
-  AttachedImage,
+  Attachment,
   ChatApp,
   CodexEvent,
   FileNode,
@@ -40,6 +48,7 @@ import type {
   Thread,
   ThreadGoal,
   ThreadItem,
+  UserInput,
 } from "./types";
 
 const serverRequestMethods = new Set([
@@ -50,15 +59,15 @@ const serverRequestMethods = new Set([
   "mcpServer/elicitation/request",
 ]);
 
-const flattenItems = (thread: Thread) => thread.turns?.flatMap((turn) => turn.items || []) || [];
+const flattenItems = (thread: Thread) => (thread.turns?.flatMap((turn) => turn.items || []) || []).map(normalizeItem).filter((item): item is ThreadItem => !!item);
 
-const titleForThread = (thread: Thread | null) => thread?.name?.trim() || thread?.preview?.trim() || "New session";
+const titleForThread = (thread: Thread | null) => thread?.name?.trim() || thread?.preview?.trim() || "New chat";
 
 const pinnedStorageKey = "lodex-pinned-threads";
 
 const readPinnedThreadIds = () => {
   try {
-    const stored = JSON.parse(window.localStorage.getItem(pinnedStorageKey) || "[]") as unknown;
+    const stored = JSON.parse(storage.get(pinnedStorageKey) || "[]") as unknown;
     return new Set(Array.isArray(stored) ? stored.filter((value): value is string => typeof value === "string") : []);
   } catch {
     return new Set<string>();
@@ -73,7 +82,7 @@ const withLocalPins = (threads: Thread[]) => {
 type SurfaceMode = "chat" | "work" | "build";
 
 const initialTheme = (): "light" | "dark" => {
-  const stored = window.localStorage.getItem("lodex-theme");
+  const stored = storage.get("lodex-theme");
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 };
@@ -84,7 +93,17 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState("");
   const [effort, setEffort] = useState("");
   const [approvalPolicy, setApprovalPolicy] = useState("on-request");
-  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>("build");
+  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>(() => {
+    const saved = storage.get("lodex-mode");
+    return saved === "work" || saved === "build" ? saved : "chat";
+  });
+  const [draftKey, setDraftKey] = useState(() => storage.get("lodex-active-thread") || "new");
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [instructions, setInstructions] = useState(() => storage.get("lodex-instructions") || "");
+  const [archivedVisible, setArchivedVisible] = useState(false);
+  const [archivedThreads, setArchivedThreads] = useState<Thread[]>([]);
+  const [editingItem, setEditingItem] = useState<ThreadItem | null>(null);
+  const [editedText, setEditedText] = useState("");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
@@ -114,6 +133,8 @@ export default function App() {
   const [runtimeState, setRuntimeState] = useState("starting");
   const [error, setError] = useState<string | null>(null);
   const activeThreadId = useRef<string | null>(null);
+  const sendLock = useRef(false);
+  const threadOpenVersion = useRef(0);
 
   useEffect(() => {
     activeThreadId.current = activeThread?.id || null;
@@ -121,15 +142,18 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("lodex-theme", theme);
+    storage.set("lodex-theme", theme);
   }, [theme]);
+  useEffect(() => { storage.set("lodex-mode", surfaceMode); }, [surfaceMode]);
 
   const upsertItem = useCallback((nextItem: ThreadItem) => {
+    const safeItem = normalizeItem(nextItem);
+    if (!safeItem) return;
     setItems((current) => {
       const index = current.findIndex((item) => item.id === nextItem.id);
-      if (index < 0) return [...current, nextItem];
+      if (index < 0) return [...current, safeItem];
       const copy = [...current];
-      copy[index] = nextItem;
+      copy[index] = safeItem;
       return copy;
     });
   }, []);
@@ -143,9 +167,10 @@ export default function App() {
     const result = await window.lodex.codex.request<{ data: Model[] }>("model/list", { limit: 50, includeHidden: false });
     const availableModels = result.data || [];
     setModels(availableModels);
-    const defaultModel = availableModels.find((model) => model.isDefault) || availableModels.find((model) => model.id === "gpt-5.6-terra") || availableModels[0];
-    setSelectedModel(defaultModel?.id || defaultModel?.model || "");
-    setEffort(defaultModel?.defaultReasoningEffort || defaultModel?.supportedReasoningEfforts?.[0]?.reasoningEffort || "");
+    const defaultModel = availableModels.find((model) => model.isDefault) || availableModels[0];
+    const preferred = availableModels.find(model => model.id === storage.get("lodex-model")) || defaultModel;
+    setSelectedModel(preferred?.id || preferred?.model || "");
+    setEffort(preferred?.defaultReasoningEffort || preferred?.supportedReasoningEfforts?.[0]?.reasoningEffort || "");
   }, []);
 
   const refreshAccountInsights = useCallback(async () => {
@@ -219,42 +244,89 @@ export default function App() {
   }, [workspace]);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
         const [accountResult, modelResult] = await Promise.all([
           window.lodex.codex.request<AccountState>("account/read", { refreshToken: false }),
           window.lodex.codex.request<{ data: Model[] }>("model/list", { limit: 50, includeHidden: false }),
         ]);
+        if (cancelled) return;
         setAccountState(accountResult);
         const availableModels = modelResult.data || [];
         setModels(availableModels);
-        const defaultModel = availableModels.find((model) => model.isDefault) || availableModels.find((model) => model.id === "gpt-5.6-terra") || availableModels[0];
+        const defaultModel = availableModels.find(model => model.id === storage.get("lodex-model")) || availableModels.find((model) => model.isDefault) || availableModels[0];
         if (defaultModel) {
           setSelectedModel(defaultModel.id || defaultModel.model);
           setEffort(defaultModel.defaultReasoningEffort || defaultModel.supportedReasoningEfforts?.[0]?.reasoningEffort || "");
         }
         await Promise.all([refreshThreads(), refreshWorkspace()]);
+        if (cancelled) return;
+        const savedThread = storage.get("lodex-active-thread");
+        if (savedThread) {
+          try {
+            const resumed = await window.lodex.codex.request<{ thread: Thread }>("thread/resume", { threadId: savedThread });
+            if (cancelled) return;
+            activeThreadId.current = resumed.thread.id;
+            setActiveThread(resumed.thread);
+            setItems(flattenItems(resumed.thread));
+            const activeTurn = resumed.thread.turns?.find(turn => turn.status === "inProgress");
+            setRunning(!!activeTurn || resumed.thread.status?.type === "active");
+            setActiveTurnId(activeTurn?.id || null);
+            void refreshGoal(savedThread);
+          } catch { storage.remove("lodex-active-thread"); setDraftKey("new"); setError("The previous chat could not be reopened. You can find it in your chat history."); }
+        }
+        const pending = await window.lodex.codex.pendingRequests();
+        if (cancelled) return;
+        setRequests(current => [...current, ...pending.filter(request => serverRequestMethods.has(request.method) && !current.some(entry => entry.id === request.id))]);
         if (accountResult.account) void refreshAccountInsights();
         setRuntimeState("ready");
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Unable to start Lodex.");
+        if (!cancelled) { setRuntimeState("error"); setError(loadError instanceof Error ? loadError.message : "Unable to start Lodex."); }
       }
     };
     void load();
-  }, [refreshAccountInsights, refreshThreads, refreshWorkspace]);
+    return () => { cancelled = true; };
+  }, [refreshAccountInsights, refreshThreads, refreshWorkspace, refreshGoal]);
 
   useEffect(() => {
+    // Flush chunks together so a fast stream doesn't rerender the transcript
+    // once per token. Flush before completed items to preserve event order.
+    const deltas = new Map<string, { text: string; output: string }>();
+    const flush = () => {
+      if (!deltas.size) return;
+      const pending = new Map(deltas);
+      deltas.clear();
+      setItems(current => {
+        const result = [...current];
+        for (const [id, delta] of pending) {
+          const index = result.findIndex(item => item.id === id);
+          if (index < 0) {
+            if (delta.text) result.push({ id, type: "agentMessage", text: delta.text, phase: "final_answer" });
+          } else {
+            result[index] = { ...result[index], ...(delta.text ? { text: `${result[index].text || ""}${delta.text}` } : {}), ...(delta.output ? { aggregatedOutput: `${result[index].aggregatedOutput || ""}${delta.output}`.slice(-64_000) } : {}) };
+          }
+        }
+        return result;
+      });
+    };
+    const timer = window.setInterval(flush, 50);
     const unsubscribeStatus = window.lodex.codex.onStatus((status) => {
       if (status.state !== "log") setRuntimeState(status.state);
-      if (status.state === "error") setError(status.message || "Codex runtime stopped.");
+      if (status.state === "error") { setError(status.message || "Codex runtime stopped."); setRunning(false); setActiveTurnId(null); setRequests([]); }
     });
 
     const unsubscribeEvents = window.lodex.codex.onEvent((event: CodexEvent) => {
       const method = event.method || "";
       const params = event.params || {};
 
+      if (method === "serverRequest/resolved") {
+        setRequests(current => current.filter(request => request.id !== params.requestId));
+        return;
+      }
+
       if (event.id !== undefined && serverRequestMethods.has(method)) {
-        setRequests((current) => [...current, { id: event.id!, method, params }]);
+        setRequests((current) => current.some(request => request.id === event.id) ? current : [...current, { id: event.id!, method, params }]);
         return;
       }
 
@@ -289,22 +361,21 @@ export default function App() {
       if (eventThreadId && eventThreadId !== activeThreadId.current) return;
 
       if (method === "item/started" || method === "item/completed") {
+        flush();
         const item = params.item as ThreadItem | undefined;
         if (item?.id) upsertItem(item);
       } else if (method === "item/agentMessage/delta") {
         const itemId = String(params.itemId || "streaming-agent-message");
         const delta = String(params.delta || "");
-        setItems((current) => {
-          const index = current.findIndex((item) => item.id === itemId);
-          if (index < 0) return [...current, { id: itemId, type: "agentMessage", text: delta, phase: "final_answer" }];
-          const copy = [...current];
-          copy[index] = { ...copy[index], text: `${copy[index].text || ""}${delta}` };
-          return copy;
-        });
+        const pending = deltas.get(itemId) || { text: "", output: "" };
+        pending.text += delta;
+        deltas.set(itemId, pending);
       } else if (method === "item/commandExecution/outputDelta") {
         const itemId = String(params.itemId || "");
         const delta = String(params.delta || "");
-        setItems((current) => current.map((item) => item.id === itemId ? { ...item, aggregatedOutput: `${item.aggregatedOutput || ""}${delta}` } : item));
+        const pending = deltas.get(itemId) || { text: "", output: "" };
+        pending.output = `${pending.output}${delta}`.slice(-64_000);
+        deltas.set(itemId, pending);
       } else if (method === "turn/diff/updated") {
         setTurnDiff(String(params.diff || ""));
       } else if (method === "turn/plan/updated") {
@@ -321,9 +392,12 @@ export default function App() {
         if (turn?.id) setActiveTurnId(turn.id);
         setRunning(true);
       } else if (method === "turn/completed") {
+        flush();
         setRunning(false);
         setActiveTurnId(null);
         void Promise.all([refreshThreads(), refreshWorkspace()]).catch(() => undefined);
+        const turn = params.turn as { error?: { message?: string } } | undefined;
+        if (turn?.error?.message) setError(turn.error.message);
       } else if (method === "error") {
         const details = params.error as { message?: string } | undefined;
         setError(details?.message || "The current turn failed.");
@@ -333,13 +407,17 @@ export default function App() {
     return () => {
       unsubscribeStatus();
       unsubscribeEvents();
+      window.clearInterval(timer);
+      deltas.clear();
     };
   }, [refreshAccount, refreshAccountInsights, refreshModels, refreshThreads, refreshWorkspace, upsertItem]);
 
   const openWorkspace = async () => {
+    if (running || sendLock.current) return;
     try {
       const selected = await window.lodex.workspace.choose();
       if (!selected) return;
+      newTask();
       setWorkspace(selected);
       setSurfaceMode("build");
       setWorkspaceVisible(true);
@@ -350,8 +428,10 @@ export default function App() {
   };
 
   const openThread = async (thread: Thread) => {
-    if (running) return;
+    if (running || sendLock.current) return;
+    const version = ++threadOpenVersion.current;
     setLoadingThread(true);
+    setItems([]);
     setTurnDiff("");
     setPlan([]);
     setGoal(null);
@@ -360,18 +440,30 @@ export default function App() {
     activeThreadId.current = thread.id;
     try {
       const result = await window.lodex.codex.request<{ thread: Thread }>("thread/resume", { threadId: thread.id });
+      if (version !== threadOpenVersion.current) return;
       setActiveThread({ ...result.thread, isPinned: readPinnedThreadIds().has(result.thread.id) });
+      storage.set("lodex-active-thread", result.thread.id);
+      const mode = storage.get(`lodex-thread-mode-${result.thread.id}`);
+      if (mode === "chat" || mode === "work" || mode === "build") setSurfaceMode(mode);
+      setDraftKey(result.thread.id);
       setItems(flattenItems(result.thread));
+      const activeTurn = result.thread.turns?.find(turn => turn.status === "inProgress");
+      setRunning(!!activeTurn || result.thread.status?.type === "active");
+      setActiveTurnId(activeTurn?.id || null);
       await refreshGoal(thread.id);
     } catch (threadError) {
-      setError(threadError instanceof Error ? threadError.message : "Unable to open that task.");
+      if (version === threadOpenVersion.current) { setActiveThread(null); activeThreadId.current = null; setError(threadError instanceof Error ? threadError.message : "Unable to open that task."); }
     } finally {
-      setLoadingThread(false);
+      if (version === threadOpenVersion.current) setLoadingThread(false);
     }
   };
 
   const newTask = () => {
-    if (running) return;
+    if (running || sendLock.current) return;
+    threadOpenVersion.current++;
+    setLoadingThread(false);
+    setDraftKey("new");
+    storage.remove("lodex-active-thread");
     activeThreadId.current = null;
     setActiveThread(null);
     setItems([]);
@@ -383,7 +475,7 @@ export default function App() {
   };
 
   const switchSurface = (surface: SurfaceMode) => {
-    if (running) return;
+    if (running || sendLock.current) return;
     setSurfaceMode(surface);
     if (surface !== "build") {
       setWorkspaceVisible(false);
@@ -393,13 +485,17 @@ export default function App() {
     newTask();
   };
 
-  const send = async (text: string, images: AttachedImage[]) => {
+  const send = async (text: string, attachments: Attachment[]) => {
+    if (running || loadingThread || sendLock.current) throw new Error("Wait for this response to finish, or press Stop.");
     if (!accountState.account && accountState.requiresOpenaiAuth) {
       await signIn();
       throw new Error("Finish signing in, then send your message again.");
     }
 
+    sendLock.current = true;
+    setRunning(true);
     try {
+      const attachedInputs = await window.lodex.workspace.attachmentInputs(attachments);
       let thread = activeThread;
       if (!thread) {
         const result = await window.lodex.codex.request<{ thread: Thread }>("thread/start", {
@@ -409,15 +505,20 @@ export default function App() {
           sandbox: surfaceMode === "chat" ? "read-only" : "workspace-write",
           personality: "friendly",
           serviceName: "lodex",
+          developerInstructions: instructions || undefined,
         });
         thread = result.thread;
         setActiveThread(thread);
         activeThreadId.current = thread.id;
+        storage.set("lodex-active-thread", thread.id);
+        const draft = storage.get(`lodex-draft-${draftKey}`);
+        if (draft) storage.set(`lodex-draft-${thread.id}`, draft);
+        storage.set(`lodex-thread-mode-${thread.id}`, surfaceMode);
       }
 
       const input = [
         ...(text ? [{ type: "text", text, text_elements: [] }] : []),
-        ...images.map((image) => ({ type: "localImage", path: image.path, detail: "auto" })),
+        ...attachedInputs,
       ];
       setRunning(true);
       const result = await window.lodex.codex.request<{ turn: { id: string } }>("turn/start", {
@@ -430,16 +531,22 @@ export default function App() {
         personality: "friendly",
       });
       setActiveTurnId(result.turn.id);
+      storage.remove(`lodex-draft-${thread.id}`);
+      // Move subsequent drafts to the durable chat after the current composer
+      // has acknowledged and cleared the submitted draft.
+      window.setTimeout(() => setDraftKey(thread!.id), 0);
     } catch (sendError) {
       setRunning(false);
       setError(sendError instanceof Error ? sendError.message : "Unable to send the message.");
       throw sendError;
+    } finally {
+      sendLock.current = false;
     }
   };
 
   const stop = () => {
     if (!activeThread?.id || !activeTurnId) return;
-    void window.lodex.codex.request("turn/interrupt", { threadId: activeThread.id, turnId: activeTurnId });
+    void window.lodex.codex.request("turn/interrupt", { threadId: activeThread.id, turnId: activeTurnId }).catch(error => setError(String(error)));
   };
 
   const signIn = async () => {
@@ -451,10 +558,12 @@ export default function App() {
   };
 
   const logout = async () => {
-    await window.lodex.auth.logout();
-    await refreshAccount();
-    setRateLimits(null);
-    setAccountUsage(null);
+    try {
+      await window.lodex.auth.logout();
+      await refreshAccount();
+      setRateLimits(null);
+      setAccountUsage(null);
+    } catch (error) { setError(String(error)); }
   };
 
   const renameThread = async (thread: Thread, name: string) => {
@@ -472,12 +581,13 @@ export default function App() {
     const isPinned = !pinned.has(thread.id);
     if (isPinned) pinned.add(thread.id);
     else pinned.delete(thread.id);
-    window.localStorage.setItem(pinnedStorageKey, JSON.stringify([...pinned]));
+    storage.set(pinnedStorageKey, JSON.stringify([...pinned]));
     setThreads((current) => current.map((entry) => entry.id === thread.id ? { ...entry, isPinned } : entry));
     if (activeThread?.id === thread.id) setActiveThread((current) => current ? { ...current, isPinned } : current);
   };
 
   const archiveThread = async (thread: Thread) => {
+    if (thread.status?.type === "active" || (thread.id === activeThread?.id && running)) { setError("Stop this chat before archiving it."); return; }
     try {
       await window.lodex.codex.request("thread/archive", { threadId: thread.id });
       setThreads((current) => current.filter((entry) => entry.id !== thread.id));
@@ -532,6 +642,90 @@ export default function App() {
     void refreshTools();
   };
 
+  const openArchived = async () => {
+    setArchivedVisible(true);
+    try {
+      const result = await window.lodex.codex.request<{ data: Thread[] }>("thread/list", { archived: true, limit: 100, sortKey: "updated_at", sortDirection: "desc" });
+      setArchivedThreads(result.data || []);
+    } catch (failure) { setError(String(failure)); }
+  };
+
+  const restoreThread = async (thread: Thread) => {
+    try {
+      await window.lodex.codex.request("thread/unarchive", { threadId: thread.id });
+      setArchivedThreads(current => current.filter(entry => entry.id !== thread.id));
+      await refreshThreads();
+    } catch (failure) { setError(String(failure)); }
+  };
+
+  const exportChat = async () => {
+    const content = items.filter(item => ["agentMessage", "userMessage"].includes(item.type)).map(item => {
+      const text = item.type === "agentMessage" ? item.text || "" : (item.content as UserInput[] || []).map(input => input.type === "text" ? input.text : "name" in input ? `[Attachment: ${input.name}]` : "[Image]").join("\n\n");
+      return `## ${item.type === "userMessage" ? "You" : "Lodex"}\n\n${text}`;
+    }).join("\n\n---\n\n");
+    try { await window.lodex.app.exportChat(titleForThread(activeThread), `# ${titleForThread(activeThread)}\n\n${content}\n`); }
+    catch (failure) { setError(String(failure)); }
+  };
+
+  const branchChat = async (targetItem?: ThreadItem, replacement?: string) => {
+    if (!activeThread || running || sendLock.current) return;
+    sendLock.current = true;
+    setLoadingThread(true);
+    try {
+      const source = await window.lodex.codex.request<{ thread: Thread }>("thread/read", { threadId: activeThread.id, includeTurns: true });
+      const turns = source.thread.turns || [];
+      const index = targetItem ? turns.findIndex(turn => turn.items.some(item => item.id === targetItem.id)) : -1;
+      if (targetItem && index < 0) throw new Error("This message is not yet saved. Try again when the response finishes.");
+      const startFresh = targetItem && index === 0;
+      const result = await window.lodex.codex.request<{ thread: Thread }>(startFresh ? "thread/start" : "thread/fork", {
+        ...(startFresh ? { restartFromThreadId: activeThread.id } : { threadId: activeThread.id, ...(targetItem ? { lastTurnId: turns[index - 1].id } : {}) }),
+        model: selectedModel || undefined, surface: surfaceMode, approvalPolicy,
+        ...(startFresh ? { developerInstructions: instructions || undefined } : {}),
+      });
+      const next = result.thread;
+      activeThreadId.current = next.id;
+      setActiveThread(next);
+      setItems(flattenItems(next));
+      setDraftKey(next.id);
+      storage.set("lodex-active-thread", next.id);
+      storage.set(`lodex-thread-mode-${next.id}`, surfaceMode);
+      setPlan([]); setGoal(null); setTurnDiff(""); setTokenUsage(null);
+      setEditingItem(null);
+      if (targetItem) {
+        const original = turns[index].items.find(item => item.type === "userMessage");
+        const originalInput = Array.isArray(original?.content) ? original.content as UserInput[] : [];
+        const input = replacement !== undefined ? [{ type: "text", text: replacement, text_elements: [] }, ...originalInput.filter(entry => entry.type !== "text")] : originalInput;
+        if (!input.length) throw new Error("There is no prompt to retry in this turn.");
+        setRunning(true);
+        const response = await window.lodex.codex.request<{ turn: { id: string } }>("turn/start", { threadId: next.id, input, model: selectedModel || undefined, effort: effort || undefined, surface: surfaceMode, approvalPolicy });
+        setActiveTurnId(response.turn.id);
+      }
+      await refreshThreads();
+    } catch (failure) { setRunning(false); setError(String(failure)); }
+    finally { sendLock.current = false; setLoadingThread(false); }
+  };
+
+  const editMessage = useCallback((item: ThreadItem) => {
+    setEditingItem(item);
+    setEditedText((item.content as UserInput[] || []).filter(input => input.type === "text").map(input => input.type === "text" ? input.text : "").join("\n"));
+  }, []);
+
+  const regenerate = () => {
+    const last = [...items].reverse().find(item => item.type === "userMessage");
+    if (last) void branchChat(last);
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.shiftKey && event.key.toLowerCase() === "o") { event.preventDefault(); newTask(); }
+      if (event.key.toLowerCase() === "b") { event.preventDefault(); setSidebarCollapsed(value => !value); }
+      if (event.key.toLowerCase() === "k") { event.preventDefault(); setSidebarCollapsed(false); window.setTimeout(() => document.querySelector<HTMLInputElement>(".sidebar-search-field input")?.focus(), 0); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const currentModel = models.find((model) => model.id === selectedModel || model.model === selectedModel);
   const efforts = currentModel?.supportedReasoningEfforts || [];
   const empty = !items.length && !loadingThread;
@@ -564,6 +758,9 @@ export default function App() {
         onOpenTools={openTools}
         onSignIn={() => void signIn()}
         onLogout={() => void logout()}
+        onSettings={() => setSettingsVisible(true)}
+        onArchived={() => void openArchived()}
+        busy={running || loadingThread}
       />
 
       <main className="main-column">
@@ -575,6 +772,7 @@ export default function App() {
               <select value={selectedModel} onChange={(event) => {
                 const modelId = event.target.value;
                 setSelectedModel(modelId);
+                storage.set("lodex-model", modelId);
                 const model = models.find((candidate) => candidate.id === modelId);
                 setEffort(model?.defaultReasoningEffort || model?.supportedReasoningEfforts?.[0]?.reasoningEffort || "");
               }}>
@@ -591,7 +789,7 @@ export default function App() {
                 <ChevronDown size={13} />
               </label>
             )}
-            <label className="select-control compact" title="Approval policy">
+            {surfaceMode === "build" && <label className="select-control compact" title="Approval policy">
               <Settings2 size={14} />
               <select value={approvalPolicy} onChange={(event) => setApprovalPolicy(event.target.value)}>
                 <option value="on-request">Ask</option>
@@ -599,15 +797,22 @@ export default function App() {
                 <option value="never">Never ask</option>
               </select>
               <ChevronDown size={13} />
-            </label>
+            </label>}
           </div>
           <nav className="surface-switcher" aria-label="Lodex mode">
             {(["chat", "work", "build"] as SurfaceMode[]).map((surface) => (
-              <button className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
+              <button disabled={running || loadingThread} className={surfaceMode === surface ? "active" : ""} onClick={() => switchSurface(surface)} key={surface}>{surface[0].toUpperCase()}{surface.slice(1)}</button>
             ))}
           </nav>
           <div className="topbar-controls">
             <span className={`runtime-dot ${runtimeState}`} title={`Codex runtime: ${runtimeState}`} />
+            {activeThread && <details className="chat-options"><summary className="icon-button" title="Chat options"><MoreHorizontal size={20} /></summary><div className="chat-options-menu">
+              <button title="Export chat" disabled={!items.length || running} onClick={() => void exportChat()}><Download size={16} />Export chat</button>
+              <button title="Branch chat" disabled={running || loadingThread} onClick={() => void branchChat()}><GitBranch size={16} />Branch chat</button>
+              <button onClick={() => void pinThread(activeThread)}><Pin size={16} />{activeThread.isPinned ? "Unpin chat" : "Pin chat"}</button>
+              <button onClick={() => setGoalDialogVisible(true)}><GoalIcon size={16} />Set a goal</button>
+            </div></details>}
+            <button className="icon-button" title="Settings" onClick={() => setSettingsVisible(true)}><Settings size={17} /></button>
             <button className={`topbar-action ${activityVisible ? "active" : ""}`} onClick={() => {
               setActivityVisible((value) => !value);
               setToolsVisible(false);
@@ -626,7 +831,9 @@ export default function App() {
           </div>
         </header>
 
-        <div className="conversation-area">
+        {runtimeState === "error" && <div className="connection-banner" role="status">Lodex lost its connection. Your draft is saved.<button onClick={() => window.location.reload()}>Reconnect</button></div>}
+        {activeThread && <div className="conversation-title">{titleForThread(activeThread)}</div>}
+        <div className={`conversation-area ${empty ? "empty-conversation" : ""}`}>
           {empty ? (
             <div className="welcome">
               <div className="welcome-mark">L</div>
@@ -638,20 +845,20 @@ export default function App() {
                 <div className="suggestion-grid">
                   {surfaceMode === "chat" ? (
                     <>
-                      <button onClick={() => void send("Help me think through the most important decision I need to make today.", [])}><Sparkles size={18} /><span>Think through a decision</span></button>
+                      <button onClick={() => void send("Help me think through the most important decision I need to make today.", []).catch(() => undefined)}><Sparkles size={18} /><span>Think through a decision</span></button>
                       <button onClick={openTools}><Blocks size={18} /><span>Explore apps and skills</span></button>
                       <button onClick={() => switchSurface("work")}><GoalIcon size={18} /><span>Start substantial work</span></button>
                     </>
                   ) : surfaceMode === "work" ? (
                     <>
-                      <button onClick={() => void send("Help me turn this goal into a clear plan with milestones and completion criteria.", [])}><GoalIcon size={18} /><span>Plan a goal</span></button>
+                      <button onClick={() => void send("Help me turn this goal into a clear plan with milestones and completion criteria.", []).catch(() => undefined)}><GoalIcon size={18} /><span>Plan a goal</span></button>
                       <button onClick={openTools}><Blocks size={18} /><span>Use apps and skills</span></button>
                       <button onClick={() => void openWorkspace()}><FolderOpen size={18} /><span>Add project context</span></button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => void send("Explain the architecture of this project and identify the most important files.", [])}><Blocks size={18} /><span>Understand this project</span></button>
-                      <button onClick={() => void send("Review the current Git changes for correctness, regressions, and missing tests.", [])}><GitCompareArrows size={18} /><span>Review Git changes</span></button>
+                      <button onClick={() => void send("Explain the architecture of this project and identify the most important files.", []).catch(() => undefined)}><Blocks size={18} /><span>Understand this project</span></button>
+                      <button onClick={() => void send("Review the current Git changes for correctness, regressions, and missing tests.", []).catch(() => undefined)}><GitCompareArrows size={18} /><span>Review Git changes</span></button>
                       <button onClick={() => void openWorkspace()}><FolderOpen size={18} /><span>Open another project</span></button>
                     </>
                   )}
@@ -659,9 +866,9 @@ export default function App() {
               )}
             </div>
           ) : (
-            <MessageList items={items} loading={loadingThread} running={running} />
+            <MessageList key={activeThread?.id || "new"} items={items} loading={loadingThread} running={running} onEdit={editMessage} onRegenerate={regenerate} />
           )}
-          <Composer disabled={runtimeState === "error" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} onSend={send} onStop={stop} onOpenTools={openTools} />
+          <Composer key={draftKey} draftKey={draftKey} disabled={runtimeState !== "ready" || loadingThread} running={running} workspace={surfaceMode === "chat" ? null : workspace} onSend={send} onStop={stop} onOpenTools={openTools} />
         </div>
 
         {terminalVisible && <TerminalPanel workspace={workspace} onClose={() => setTerminalVisible(false)} />}
@@ -681,7 +888,7 @@ export default function App() {
 
       <ToolsPanel visible={toolsVisible} loading={toolsLoading} apps={apps} skills={skills} onClose={() => setToolsVisible(false)} onRefresh={() => void refreshTools()} />
 
-      <WorkspacePanel
+      {workspaceVisible && surfaceMode === "build" && <Suspense fallback={<aside className="workspace-panel"><div className="conversation-state">Opening project tools…</div></aside>}><WorkspacePanel
         visible={workspaceVisible && surfaceMode === "build"}
         workspace={workspace}
         tree={tree}
@@ -690,12 +897,19 @@ export default function App() {
         onClose={() => setWorkspaceVisible(false)}
         onOpenWorkspace={() => void openWorkspace()}
         onRefresh={refreshWorkspace}
-      />
+      /></Suspense>}
+
+      {settingsVisible && <SettingsDialog theme={theme} onTheme={setTheme} approvalPolicy={approvalPolicy} onApproval={setApprovalPolicy} instructions={instructions} onInstructions={value => { setInstructions(value); storage.set("lodex-instructions", value); }} onClose={() => setSettingsVisible(false)} />}
+
+      {archivedVisible && <div className="modal-backdrop"><section className="settings-dialog" role="dialog" aria-modal="true" aria-label="Archived chats"><header><h2>Archived chats</h2><button className="icon-button" title="Close archived chats" onClick={() => setArchivedVisible(false)}><X size={20} /></button></header>{archivedThreads.map(thread => <div className="settings-row" key={thread.id}><span>{titleForThread(thread)}</span><button className="secondary-button" onClick={() => void restoreThread(thread)}>Restore</button></div>)}{!archivedThreads.length && <p className="drawer-empty">No archived chats.</p>}</section></div>}
+
+      {editingItem && <div className="modal-backdrop"><form className="settings-dialog" role="dialog" aria-modal="true" aria-label="Edit message" onSubmit={event => { event.preventDefault(); if (editedText.trim()) void branchChat(editingItem, editedText.trim()); }}><header><h2>Edit message</h2><button type="button" className="icon-button" title="Cancel edit" onClick={() => setEditingItem(null)}><X size={20} /></button></header><p className="drawer-empty">This starts a new branch. Your original conversation and project files are kept.</p><textarea autoFocus aria-label="Edited message" rows={6} value={editedText} onChange={event => setEditedText(event.target.value)} /><div className="dialog-actions"><span /><button type="button" className="secondary-button" onClick={() => setEditingItem(null)}>Cancel</button><button type="submit" className="primary-button" disabled={!editedText.trim() || loadingThread}>Send in new branch</button></div></form></div>}
 
       {goalDialogVisible && activeThread && <GoalDialog goal={goal} onCancel={() => setGoalDialogVisible(false)} onSave={saveGoal} onClear={clearGoal} />}
 
       {!!requests.length && (
         <ApprovalDialog
+          key={requests[0].id}
           request={requests[0]}
           onResolve={(result) => {
             window.lodex.codex.respond(requests[0].id, result);

@@ -1,4 +1,5 @@
 import Editor from "@monaco-editor/react";
+import "../editor";
 import {
   Check,
   ChevronDown,
