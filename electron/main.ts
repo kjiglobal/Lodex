@@ -77,6 +77,7 @@ async function createWindow(): Promise<void> {
     height: 960,
     minWidth: 720,
     minHeight: 540,
+    icon: app.isPackaged ? path.join(process.resourcesPath, "icon.png") : path.join(app.getAppPath(), "build", "icon.png"),
     backgroundColor: "#212121",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     show: true,
