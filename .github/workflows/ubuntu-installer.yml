@@ -40,6 +40,10 @@ jobs:
           path: release
           run-id: ${{ inputs.verify_run }}
           github-token: ${{ github.token }}
+      - name: Normalize earlier artifact layouts
+        if: inputs.verify_run != ''
+        run: |
+          if [[ -d release/release ]]; then cp release/release/*.deb release/; fi
       - name: Test streaming and recovery regressions
         if: inputs.verify_run == ''
         run: |
@@ -57,6 +61,7 @@ jobs:
             release/*.deb
             release/SHA256SUMS
             release/ubuntu-smoke.log
+            release/ubuntu-diagnostics.log
             release/ubuntu-smoke.png
       - name: Save interface verification screenshots
         uses: actions/upload-artifact@v4

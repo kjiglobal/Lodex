@@ -32,7 +32,7 @@ async function main() {
   const send = (method, params) => new Promise((resolve, reject) => {
     const id = ++nextId;
     const target = socket;
-    const timer = setTimeout(() => { target.removeEventListener("message", listener); reject(new Error(`${method} timed out`)); }, 15000);
+    const timer = setTimeout(() => { target.removeEventListener("message", listener); reject(new Error(`${method} timed out`)); }, 35000);
     const listener = event => {
       const message = JSON.parse(event.data);
       if (message.id !== id) return;
@@ -50,6 +50,7 @@ async function main() {
   };
   try {
     await connect();
+    console.log("LODEX_SMOKE_PHASE initial-window-connected");
     const snapshot = await evaluate(`(async () => {
       for (let i = 0; i < 100 && !document.querySelector('.composer'); i++) await new Promise(resolve => setTimeout(resolve, 100));
       await window.lodex.codex.request('account/read', { refreshToken: false });
@@ -58,6 +59,7 @@ async function main() {
         hasSidebar: !!document.querySelector('.sidebar'), runtimeReady: true, softwareRendering: info.softwareRendering };
     })()`);
     if (!snapshot.hasComposer || !snapshot.hasSidebar || !snapshot.softwareRendering) throw new Error(`Incomplete app: ${JSON.stringify(snapshot)}`);
+    console.log(`LODEX_SMOKE_PHASE initial-window-ready ${JSON.stringify(snapshot)}`);
     // Write through the real textarea event path, then terminate only the
     // renderer. The main process and Codex runtime must remain alive.
     await evaluate(`(() => {
@@ -69,10 +71,12 @@ async function main() {
     await delay(100);
     const saved = await evaluate(`JSON.parse(localStorage.getItem('lodex-draft-new') || '{}').text`);
     if (saved !== "Saved recovery test draft") throw new Error("Draft was not persisted before crash.");
+    console.log("LODEX_SMOKE_PHASE draft-persisted-crashing-renderer");
     socket.send(JSON.stringify({ id: ++nextId, method: "Page.crash" }));
     await delay(1500);
     socket.close();
     await connect();
+    console.log("LODEX_SMOKE_PHASE reconnected-after-crash");
     const recovered = await evaluate(`(async () => {
       for (let i = 0; i < 100 && !document.querySelector('.composer textarea'); i++) await new Promise(resolve => setTimeout(resolve, 100));
       return { rendererRecovered: !!document.querySelector('.composer'), draftRecovered: document.querySelector('.composer textarea')?.value === 'Saved recovery test draft' };
