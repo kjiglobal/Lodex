@@ -345,7 +345,7 @@ export default function App() {
         if (next) setApps(next);
       }
 
-      if (method === "thread/name/updated" || method === "thread/archived") {
+      if (method === "thread/name/updated" || method === "thread/archived" || method === "thread/unarchived") {
         void refreshThreads().catch(() => undefined);
       }
 
