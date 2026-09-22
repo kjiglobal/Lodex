@@ -120,7 +120,7 @@ test('untrusted redirects and network/rate-limit failures are recoverable', asyn
 function installerFixture({ metadata = 'lodex\n0.5.0\namd64', code = 0, installed = 'install ok installed\n0.5.0' } = {}) {
   const calls = [], exports = {};
   require('node:vm').runInNewContext(require('node:fs').readFileSync('dist-electron/update-installer.js', 'utf8'), {
-    exports, process: { platform: 'linux', arch: 'x64' },
+    exports, process: { platform: 'linux', arch: 'x64', resourcesPath: '/opt/Lodex/resources' },
     require: name => name === 'node:util' ? { promisify: () => async (file, args) => { calls.push({ file, args }); return { stdout: file.endsWith('dpkg-deb') ? metadata : installed }; } }
       : name === 'node:child_process' ? { execFile() {}, spawn: (file, args, options) => {
         calls.push({ file, args, options }); const child = new (require('node:events').EventEmitter)();
@@ -132,10 +132,10 @@ function installerFixture({ metadata = 'lodex\n0.5.0\namd64', code = 0, installe
 test('Ubuntu installer uses a fixed authenticated command and verifies package identity and installed version', async () => {
   const fixture = installerFixture();
   const file = '/home/tester/a folder/$(touch nope).deb';
-  assert.equal(await fixture.install(file, '0.5.0'), 'installed');
+  assert.equal(await fixture.install(file, '0.5.0', digest), 'installed');
   const privileged = fixture.calls.find(call => call.file.endsWith('pkexec'));
   assert.equal(privileged.file, '/usr/bin/pkexec');
-  assert.deepEqual(Array.from(privileged.args), ['--disable-internal-agent', '/usr/bin/apt-get', '--assume-yes', '--no-remove', '-o', 'Dpkg::Options::=--force-confold', 'install', file]);
+  assert.deepEqual(Array.from(privileged.args), ['--disable-internal-agent', '/usr/bin/python3', path.join('/opt/Lodex/resources', 'update-helper.py'), file, digest, '0.5.0', 'amd64']);
   assert.equal(privileged.options.shell, undefined);
   const wrongPackage = installerFixture({ metadata: 'something-else\n0.5.0\namd64' });
   await assert.rejects(wrongPackage.install(file, '0.5.0'));

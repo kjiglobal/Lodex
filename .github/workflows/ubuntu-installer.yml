@@ -61,7 +61,9 @@ jobs:
         run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test tests/desktop.test.cjs
       - name: Verify the Ubuntu update installer
         if: inputs.verify_run == ''
-        run: node scripts/verify-update-installer.cjs
+        run: |
+          sudo env CI=true python3 tests/update-helper.test.py
+          node scripts/verify-update-installer.cjs
       - name: Verify local voice typing with real audio
         if: inputs.verify_run == ''
         run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node scripts/verify-dictation.cjs | tee release/voice-smoke.log

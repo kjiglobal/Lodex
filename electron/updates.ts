@@ -14,7 +14,7 @@ type Options = {
   directory: string;
   canInstall: boolean;
   fetch?: typeof fetch;
-  install: (file: string, version: string) => Promise<"installed" | "canceled">;
+  install: (file: string, version: string, hash: string) => Promise<"installed" | "canceled">;
   changed: (state: UpdateState) => void;
 };
 
@@ -200,7 +200,7 @@ export class UpdateService {
     try {
       const info = await fs.lstat(this.downloaded.file);
       if (!info.isFile() || info.isSymbolicLink() || info.size !== this.downloaded.size || await sha256(this.downloaded.file) !== this.downloaded.hash) throw new Error("The installer changed after download. Check for updates and download it again.");
-      const result = await this.options.install(this.downloaded.file, this.release.version);
+      const result = await this.options.install(this.downloaded.file, this.release.version, this.downloaded.hash);
       if (result === "canceled") return this.set({ status: "ready", message: "Installation canceled. Your current version is unchanged. Select Install Update to try again." });
       await this.removeDownload(path.dirname(this.downloaded.file));
       this.downloaded = undefined;

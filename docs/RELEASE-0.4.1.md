@@ -3,7 +3,7 @@
 - **Help → Check for Updates** checks the latest stable GitHub release and tells you when Lodex is up to date.
 - **About Lodex** now includes the installed version, release notes, and update controls. Settings also offers Check for Updates.
 - **Download Update** shows progress and can be canceled. Lodex checks the installer's size and SHA-256 checksum before enabling **Install Update**.
-- **Install Update** uses Ubuntu's normal password prompt. Lodex never asks for or saves your password. Ubuntu installs the package, and Lodex confirms the installed version.
+- **Install Update** uses Ubuntu's normal password prompt. Lodex never asks for or saves your password. The installer is verified again after authorization, Ubuntu installs the package, and Lodex confirms the installed version.
 - **Restart Lodex** appears after successful installation. Restart when your running tasks are finished. Your chats and settings are kept.
 
 ## Install or upgrade
@@ -16,6 +16,6 @@ In-app installation supports the installed Ubuntu `.deb` package, with an instal
 
 ## Verification
 
-Regression checks cover numeric version ordering, stable releases, architecture and download-address validation, checksum failures, truncated and canceled downloads, modified installers, canceled authorization, installation failures, and explicit restart. Browser checks cover the About/Help flow, progress, retry, and compact light/dark layouts. Ubuntu verification installs the package, checks the native menu and updater availability, and exercises the same package validation and apt arguments using CI's existing sudo authorization in place of an interactive password prompt.
+Regression checks cover numeric version ordering, stable releases, architecture and download-address validation, checksum failures, truncated and canceled downloads, modified installers, canceled authorization, installation failures, and explicit restart. Browser checks cover the About/Help flow, progress, retry, and compact light/dark layouts. Ubuntu verification tests the private root-owned package copy, rejects changed or linked installers, checks the native menu and updater availability, and exercises the installed helper and apt command using CI's existing sudo authorization in place of an interactive password prompt.
 
 All [0.4 features](RELEASE-0.4.md), including image paste, sidebar groups, model/access controls, voice typing, and window recovery, are retained.
