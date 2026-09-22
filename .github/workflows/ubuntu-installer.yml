@@ -51,6 +51,12 @@ jobs:
           npm test
       - name: Install and verify the package
         run: bash scripts/verify-ubuntu-package.sh
+      - name: Verify native desktop controls
+        if: inputs.verify_run == ''
+        run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test tests/desktop.test.cjs
+      - name: Verify local voice typing with real audio
+        if: inputs.verify_run == ''
+        run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node scripts/verify-dictation.cjs | tee release/voice-smoke.log
       - name: Save installer and verification output
         uses: actions/upload-artifact@v4
         if: always()
@@ -63,6 +69,7 @@ jobs:
             release/ubuntu-smoke.log
             release/ubuntu-diagnostics.log
             release/ubuntu-smoke.png
+            release/voice-smoke.log
       - name: Save interface verification screenshots
         uses: actions/upload-artifact@v4
         if: always() && inputs.verify_run == ''

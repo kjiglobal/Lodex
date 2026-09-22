@@ -1,4 +1,5 @@
-import { app, dialog } from "electron";
+import { app, dialog, nativeImage } from "electron";
+import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync, promises as fs, realpathSync } from "node:fs";
 import path from "node:path";
@@ -30,9 +31,12 @@ export type GitFile = {
 };
 
 export class WorkspaceService {
+  private static preferenceWrites = Promise.resolve();
   private root: string | null = null;
+  private projects: string[] = [];
   private allowedImages = new Set<string>();
   private allowedAttachments = new Set<string>();
+  private temporaryImages = new Map<string, Buffer>();
 
   async load(): Promise<void> {
     try {
@@ -43,8 +47,9 @@ export class WorkspaceService {
       }
     } catch { /* No attachments yet. */ }
     try {
-      const stored = JSON.parse(await fs.readFile(this.preferencesPath(), "utf8")) as { workspace?: string };
+      const stored = JSON.parse(await fs.readFile(this.preferencesPath(), "utf8")) as { workspace?: string; projects?: string[] };
       if (stored.workspace && (await fs.stat(stored.workspace)).isDirectory()) this.root = stored.workspace;
+      this.projects = [...new Set([...(Array.isArray(stored.projects) ? stored.projects.filter(p => typeof p === "string") : []), ...(this.root ? [this.root] : [])])];
     } catch {
       // First launch or a stale workspace is expected.
     }
@@ -62,9 +67,74 @@ export class WorkspaceService {
     });
     if (result.canceled || !result.filePaths[0]) return null;
     this.root = path.resolve(result.filePaths[0]);
-    await fs.mkdir(path.dirname(this.preferencesPath()), { recursive: true });
-    await fs.writeFile(this.preferencesPath(), JSON.stringify({ workspace: this.root }, null, 2), "utf8");
+    this.projects = [...new Set([...this.projects, this.root])];
+    await this.savePreferences();
     return this.root;
+  }
+
+  async listProjects(): Promise<string[]> {
+    await WorkspaceService.preferenceWrites;
+    const stored = await fs.readFile(this.preferencesPath(), "utf8").then(JSON.parse).catch(() => ({}));
+    this.projects = [...new Set([...this.projects, ...(Array.isArray(stored.projects) ? stored.projects.filter((p: unknown) => typeof p === "string") : [])])];
+    return this.projects;
+  }
+
+  private async savePreferences(): Promise<void> {
+    const write = WorkspaceService.preferenceWrites.then(async () => {
+      const stored = await fs.readFile(this.preferencesPath(), "utf8").then(JSON.parse).catch(() => ({}));
+      this.projects = [...new Set([...this.projects, ...(Array.isArray(stored.projects) ? stored.projects.filter((p: unknown) => typeof p === "string") : [])])];
+      await fs.mkdir(path.dirname(this.preferencesPath()), { recursive: true });
+      await fs.writeFile(this.preferencesPath(), JSON.stringify({ workspace: this.root, projects: this.projects }, null, 2), "utf8");
+    });
+    WorkspaceService.preferenceWrites = write.catch(() => undefined);
+    await write;
+  }
+
+  async selectProject(value: unknown): Promise<string> {
+    await this.listProjects();
+    if (typeof value !== "string" || !this.projects.includes(value)) throw new Error("Open this folder using File → Open Folder first.");
+    if (!(await fs.stat(value)).isDirectory()) throw new Error("This project folder is no longer available.");
+    this.root = value;
+    await this.savePreferences();
+    return value;
+  }
+
+  async pasteImage(value: unknown, temporary = false) {
+    if (!(value instanceof Uint8Array) || !value.byteLength || value.byteLength > 20 * 1024 * 1024) throw new Error("Paste an image smaller than 20 MB.");
+    const image = nativeImage.createFromBuffer(Buffer.from(value));
+    const dimensions = image.getSize();
+    if (image.isEmpty() || dimensions.width * dimensions.height > 40_000_000) throw new Error("This clipboard image is not supported or is too large.");
+    const png = image.toPNG();
+    if (png.length > 20 * 1024 * 1024) throw new Error("Paste an image smaller than 20 MB.");
+    if (temporary) {
+      const key = `temporary-${randomUUID()}.png`;
+      this.temporaryImages.set(key, png);
+      return { path: key, name: "Pasted image.png", kind: "image" as const, size: png.length };
+    }
+    const directory = path.join(app.getPath("userData"), "pasted-images");
+    await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+    const file = path.join(directory, `${randomUUID()}.png`);
+    await fs.writeFile(file, png, { mode: 0o600, flag: "wx" });
+    this.allowedImages.add(file);
+    this.allowedAttachments.add(file);
+    await this.saveAttachments();
+    return { path: file, name: "Pasted image.png", kind: "image" as const, size: png.length };
+  }
+
+  private async saveAttachments() {
+    const file = path.join(app.getPath("userData"), "attachments.json");
+    const existing: unknown = await fs.readFile(file, "utf8").then(JSON.parse).catch(() => []);
+    const paths = [...new Set([...(Array.isArray(existing) ? existing.filter(p => typeof p === "string") : []), ...this.allowedAttachments])];
+    const permanent = paths.filter(p => path.dirname(p) !== path.join(app.getPath("userData"), "temporary-images"));
+    await fs.mkdir(app.getPath("userData"), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(permanent.slice(-500)), { encoding: "utf8", mode: 0o600 });
+  }
+
+  async clearTemporaryImages() { this.temporaryImages.clear(); }
+
+  temporaryImage(key: string): Uint8Array | undefined {
+    const image = this.temporaryImages.get(key);
+    return image ? new Uint8Array(image) : undefined;
   }
 
   async chooseImages(): Promise<Array<{ path: string; name: string }>> {
@@ -94,8 +164,7 @@ export class WorkspaceService {
       if (kind === "image") this.allowedImages.add(resolved);
       return { path: resolved, name: path.basename(file), kind, size: stat.size };
     }));
-    await fs.mkdir(app.getPath("userData"), { recursive: true });
-    await fs.writeFile(path.join(app.getPath("userData"), "attachments.json"), JSON.stringify([...this.allowedAttachments].slice(-500)), "utf8");
+    await this.saveAttachments();
     return attachments;
   }
 
@@ -103,6 +172,8 @@ export class WorkspaceService {
     if (!Array.isArray(value) || value.length > 8) throw new Error("Choose up to eight attachments.");
     return Promise.all(value.map(async (attachment: unknown) => {
       if (!attachment || typeof attachment !== "object" || !("path" in attachment) || typeof attachment.path !== "string") throw new Error("Invalid attachment.");
+      const temporary = this.temporaryImages.get(attachment.path);
+      if (temporary) return { type: "image", url: `data:image/png;base64,${temporary.toString("base64")}`, detail: "auto" };
       const file = await fs.realpath(attachment.path);
       if (!this.allowedAttachments.has(file) && !this.allowedImages.has(file)) throw new Error("Please attach this file again using Add photos and files.");
       const stat = await fs.stat(file);
@@ -227,6 +298,7 @@ export class WorkspaceService {
   }
 
   canLoadImage(filePath: string): boolean {
+    if (this.temporaryImages.has(filePath)) return true;
     if (!existsSync(filePath)) return false;
     const realPath = realpathSync.native(filePath);
     if (this.allowedImages.has(realPath)) return true;

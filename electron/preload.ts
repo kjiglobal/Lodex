@@ -9,6 +9,7 @@ const on = (channel: string, callback: (value: unknown) => void) => {
 contextBridge.exposeInMainWorld("lodex", {
   platform: process.platform,
   app: {
+    onMenu: (callback: (action: unknown) => void) => on("app:menu", callback),
     reportError: (category: string) => ipcRenderer.send("app:report-error", category),
     openDiagnostics: () => ipcRenderer.invoke("app:open-diagnostics"),
     exportChat: (title: string, content: string) => ipcRenderer.invoke("app:export-chat", title, content),
@@ -26,6 +27,10 @@ contextBridge.exposeInMainWorld("lodex", {
     logout: () => ipcRenderer.invoke("auth:logout"),
   },
   workspace: {
+    projects: () => ipcRenderer.invoke("workspace:projects"),
+    select: (value: string) => ipcRenderer.invoke("workspace:select", value),
+    pasteImage: (bytes: Uint8Array, temporary: boolean) => ipcRenderer.invoke("workspace:paste-image", bytes, temporary),
+    clearTemporary: () => ipcRenderer.invoke("workspace:clear-temporary"),
     current: () => ipcRenderer.invoke("workspace:current"),
     choose: () => ipcRenderer.invoke("workspace:choose"),
     chooseImages: () => ipcRenderer.invoke("workspace:choose-images"),

@@ -20,7 +20,7 @@ Lodex starts `account/login/start` with the managed `chatgpt` login type and ope
 
 ## Codex protocol
 
-`electron/codex-client.ts` owns one local app-server process and performs the required `initialize` / `initialized` handshake. It correlates JSON-RPC responses, forwards event notifications, and relays server approval requests to the UI.
+`electron/codex-client.ts` owns one local app-server process per window and performs the required `initialize` / `initialized` handshake. The main process routes IPC by the requesting web contents. Each window retains its own project and runtime; history, authentication, and preferences are shared through disk. Active-chat keys and new-chat drafts are separate for additional windows.
 
 The renderer uses these stable surfaces:
 
@@ -47,7 +47,7 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 - Directory symlinks are not traversed by the file tree.
 - The local-image protocol accepts supported image extensions only and limits access to the project or images explicitly chosen by the user.
 - Generic renderer-to-app-server access is denied. Allowed methods are enumerated and sensitive parameters are normalized in the main process.
-- Chat turns use the `read-only` sandbox; Work and Build turns use `workspace-write` and the selected project when one is available.
+- Chat turns default to `read-only`; Work and Build default to `workspace-write`. The composer access choice is translated by the main process to runtime sandbox settings. Full access is an explicit user selection and uses `dangerFullAccess` with approvals disabled. Subsequent turns retain the thread's own working directory.
 - The terminal is a user-controlled login shell. Its start command and session IDs are validated by the main process.
 - External links are opened by the operating system rather than navigating the Lodex renderer.
 
@@ -55,7 +55,7 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 
 Linux packages must be built on Linux. That ensures npm installs the correct platform-specific Codex binary before Electron Builder creates the AppImage and Debian package. Cross-building from Windows is intentionally not the release path because the Windows npm install contains the Windows Codex runtime.
 
-## Reliability and 0.3 client state
+## Reliability and client state
 
 Renderer input is normalized before display, including object-shaped `PatchChangeKind` values. Item error boundaries contain a bad activity; the app boundary offers a recovery screen. Token chunks are batched, command previews are capped, transcript rendering is paged, and Monaco is loaded on demand.
 
@@ -63,6 +63,10 @@ Electron retains the app-server and unresolved approval requests across renderer
 
 Chat editing and retry use `thread/read` plus `thread/fork` through the preceding completed turn (or a new thread for the first prompt), never destructive rollback. Continuing a thread retains that thread's working directory rather than redirecting it to whichever project was most recently selected.
 
-Attachments must first be selected through a native file dialog. The main process verifies the selected paths and size limits before constructing runtime input. Approved attachment paths persist so drafts can recover after a restart. Runtime-produced image paths are authorized only when the runtime references them in generated-image items. Chat export uses a native Save dialog and writes Markdown only to the chosen destination.
+Attachments must first be selected through a native file dialog or pasted from a clipboard image event. The main process verifies paths and size limits; ordinary clipboard bytes are decoded, bounded, converted to PNG and saved with private permissions under a generated filename. Approved attachment paths persist so ordinary drafts can recover after a restart. Temporary pasted images stay in memory, use uncached previews, and are released when the temporary chat/window closes; they are sent to the ephemeral runtime thread as image data URLs. Runtime-produced image paths are authorized only when the runtime references them in generated-image items. Chat export uses a native Save dialog and writes Markdown only to the chosen destination.
 
-See [0.3 release notes](RELEASE-0.3.md) for the supported feature boundary and test workflow.
+Temporary chats pass `ephemeral: true` to `thread/start`, keep drafts in React state, and do not set the persistent active-chat key. Leaving the chat unsubscribes from its runtime thread.
+
+Dictation records microphone audio only after the microphone button is pressed. A one-time model setup precedes recording. Audio is capped at one minute, resampled to 16 kHz mono, checked for silence, and sent to a dedicated CPU/WASM Whisper worker. It never reaches the OpenAI service or disk. The worker fetches public model files from Hugging Face; application code and WASM are bundled. CSP permits only the model host/CDN in addition to existing OpenAI connections. Cancellation/unmount terminates the worker and releases audio tracks. Only the resulting editable text can be sent as a normal chat message.
+
+See [0.4 release notes](RELEASE-0.4.md) for the current supported features, compatibility, and verification workflow. The [0.3 release notes](RELEASE-0.3.md) document the earlier recovery improvements.

@@ -3,6 +3,8 @@ import {
   Blocks,
   Bot,
   ChevronDown,
+  Check,
+  Plus,
   FolderGit2,
   LogIn,
   LogOut,
@@ -25,6 +27,8 @@ type Props = {
   activeThreadId: string | null;
   account: Account | null;
   workspace: string | null;
+  projects: string[];
+  onProject(path: string): void;
   rateLimits: RateLimits | null;
   accountUsage: AccountUsage | null;
   collapsed: boolean;
@@ -103,6 +107,8 @@ export function Sidebar({
   activeThreadId,
   account,
   workspace,
+  projects,
+  onProject,
   rateLimits,
   accountUsage,
   collapsed,
@@ -126,8 +132,18 @@ export function Sidebar({
 }: Props) {
   const [query, setQuery] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [productOpen, setProductOpen] = useState(false);
+  const [sections, setSections] = useState({ pinned: true, projects: true, recent: true });
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+  const productRef = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const isCodex = surfaceMode === "build";
+  useEffect(() => {
+    const close = (event: PointerEvent) => { if (!productRef.current?.contains(event.target as Node)) setProductOpen(false); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setProductOpen(false); };
+    window.addEventListener("pointerdown", close); window.addEventListener("keydown", escape);
+    return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", escape); };
+  }, []);
 
   useEffect(() => {
     const focusSearch = () => searchInput.current?.focus();
@@ -140,7 +156,7 @@ export function Sidebar({
     return threads.filter((thread) => threadTitle(thread).toLocaleLowerCase().includes(normalized));
   }, [query, threads]);
   const pinned = filtered.filter((thread) => thread.isPinned);
-  const recent = filtered.filter((thread) => !thread.isPinned);
+  const recent = filtered.filter((thread) => !thread.isPinned && !projects.includes(thread.cwd));
   const usage = rateLimits?.primary?.usedPercent;
 
   if (collapsed) {
@@ -181,9 +197,12 @@ export function Sidebar({
         <button className="icon-button sidebar-close" onClick={onToggle} title="Close sidebar"><PanelLeftClose size={18} /></button>
       </div>
 
-      <div className="product-switcher" aria-label="Product">
-        <button disabled={busy} className={!isCodex ? "active" : ""} onClick={() => onSwitchSurface("chat")}><MessageSquare size={15} />ChatGPT</button>
-        <button disabled={busy} className={isCodex ? "active" : ""} onClick={() => onSwitchSurface("build")}><Bot size={15} />Codex</button>
+      <div className="product-dropdown" ref={productRef}>
+        <button className="product-trigger" disabled={busy} aria-label="Switch between ChatGPT and Codex" aria-haspopup="menu" aria-expanded={productOpen} onClick={() => setProductOpen(!productOpen)}>{isCodex ? "Codex" : "ChatGPT"}<ChevronDown size={19} /></button>
+        {productOpen && <div className="product-menu" role="menu" aria-label="Product">
+          <button role="menuitemradio" aria-checked={!isCodex} onClick={() => { onSwitchSurface("chat"); setProductOpen(false); }}><MessageSquare size={19} /><span>ChatGPT<small>Create, learn, and explore</small></span>{!isCodex && <Check size={18} />}</button>
+          <button role="menuitemradio" aria-checked={isCodex} onClick={() => { onSwitchSurface("build"); setProductOpen(false); }}><Bot size={19} /><span>Codex<small>Build, debug, and ship</small></span>{isCodex && <Check size={18} />}</button>
+        </div>}
       </div>
 
       <div className="sidebar-primary-actions">
@@ -193,17 +212,28 @@ export function Sidebar({
 
       <div className="sidebar-nav">
         <button className="workspace-button" disabled={busy} onClick={onOpenWorkspace} title={workspace ?? undefined}>
-          <FolderGit2 size={16} /><span>{workspace ? shortPath(workspace) : "Projects"}</span><ChevronDown size={15} />
+          <FolderGit2 size={16} /><span>{workspace ? shortPath(workspace) : "Open folder"}</span><ChevronDown size={15} />
         </button>
         <button className="workspace-button" onClick={onOpenTools}><Blocks size={16} /><span>Apps and skills</span></button>
       </div>
 
       <nav className="thread-list" aria-label="Chats">
-        {!!pinned.length && <section><div className="sidebar-section-title"><span>Pinned</span></div>{renderRows(pinned)}</section>}
+        <section aria-label="Pinned chats"><button className="section-toggle" aria-expanded={sections.pinned} onClick={() => setSections({ ...sections, pinned: !sections.pinned })}>Pinned<ChevronDown size={15} /></button>{sections.pinned && (pinned.length ? renderRows(pinned) : <p className="sidebar-empty">Pin a chat to keep it here.</p>)}</section>
+        <section aria-label="Projects"><div className="section-heading"><button className="section-toggle" aria-expanded={sections.projects} onClick={() => setSections({ ...sections, projects: !sections.projects })}>Projects<ChevronDown size={15} /></button><button className="icon-button" title="Add project" disabled={busy} onClick={onOpenWorkspace}><Plus size={16} /></button></div>
+          {sections.projects && projects.map(project => {
+            const rows = filtered.filter(thread => thread.cwd === project && !thread.isPinned);
+            const expanded = query.length > 0 || expandedProjects.includes(project);
+            return <div className="project-group" key={project}>
+              <div className="project-row"><button className="icon-button" aria-label={`Expand ${shortPath(project)}`} aria-expanded={expanded} onClick={() => setExpandedProjects(current => current.includes(project) ? current.filter(p => p !== project) : [...current, project])}><ChevronDown size={14} /></button><button className="project-link" disabled={busy} title={project} onClick={() => onProject(project)}><FolderGit2 size={16} />{shortPath(project)}<small>{rows.length || ""}</small></button></div>
+              {expanded && <div className="project-chats">{renderRows(rows)}{!rows.length && <p className="sidebar-empty">No chats in this project yet.</p>}</div>}
+            </div>;
+          })}
+          {sections.projects && !projects.length && <p className="sidebar-empty">Open a folder to add a project.</p>}
+        </section>
         <section>
-          <div className="sidebar-section-title"><span>Chats</span><small>{filtered.length || ""}</small></div>
-          {renderRows(recent)}
-          {!filtered.length && <p className="sidebar-empty">{query ? "No chats match your search." : "Your recent chats will appear here."}</p>}
+          <button className="section-toggle" aria-expanded={sections.recent} onClick={() => setSections({ ...sections, recent: !sections.recent })}>Recents<ChevronDown size={15} /></button>
+          {sections.recent && renderRows(recent)}
+          {sections.recent && !recent.length && <p className="sidebar-empty">{query ? "No chats match your search." : "Your recent chats will appear here."}</p>}
         </section>
       </nav>
 

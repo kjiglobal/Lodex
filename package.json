@@ -1,6 +1,6 @@
 {
   "name": "lodex",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A native Linux workspace for ChatGPT and Codex workflows.",
   "homepage": "https://github.com/wwdreamb/Lodex",
@@ -35,6 +35,7 @@
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
+    "@huggingface/transformers": "3.8.1",
     "@playwright/test": "1.63.0",
     "@types/node": "24.10.1",
     "@types/react": "19.2.18",
@@ -51,7 +52,10 @@
   },
   "overrides": {
     "dompurify": "3.4.13",
-    "nanoid": "3.3.18"
+    "nanoid": "3.3.18",
+    "@huggingface/transformers": {
+      "sharp": "0.35.4"
+    }
   },
   "build": {
     "appId": "com.lodex.desktop",
