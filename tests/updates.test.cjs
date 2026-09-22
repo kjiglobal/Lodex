@@ -5,7 +5,7 @@ const { mkdtemp, readdir, readFile, writeFile, rm } = require('node:fs/promises'
 const path = require('node:path');
 const os = require('node:os');
 const { UpdateService, isNewerVersion, parseRelease } = require('../dist-electron/updates');
-const base = 'https://github.com/wwdreamb/Lodex';
+const base = 'https://github.com/kjiglobal/Lodex';
 const name = 'Lodex-0.5.0-amd64.deb';
 const bytes = Buffer.from('test package contents');
 const digest = createHash('sha256').update(bytes).digest('hex');
@@ -46,11 +46,16 @@ test('versions compare numerically and stable release metadata binds the archite
   assert.equal(parseRelease(release(), 'arm64').asset, undefined);
   const malicious = release(); malicious.assets[0].browser_download_url = 'https://example.com/payload.deb';
   assert.throws(() => parseRelease(malicious, 'x64'));
+  const oldOwner = release(); oldOwner.html_url = 'https://github.com/wwdreamb/Lodex/releases/tag/v0.5.0';
+  assert.throws(() => parseRelease(oldOwner, 'x64'), /release address/);
+  const oldAsset = release(); oldAsset.assets[0].browser_download_url = `https://github.com/wwdreamb/Lodex/releases/download/v0.5.0/${name}`;
+  assert.throws(() => parseRelease(oldAsset, 'x64'), /download details/);
 });
 test('new release downloads byte-for-byte, emits progress, installs once and requires a separate restart', async t => {
-  const { service, directory, installs, events } = await fixture(t);
+  const { service, directory, installs, events, requests } = await fixture(t);
   assert.equal((await service.install()).status, 'idle');
   assert.equal((await service.check()).status, 'available');
+  assert.deepEqual(requests, ['https://api.github.com/repos/kjiglobal/Lodex/releases/latest']);
   await Promise.all([service.download(), service.download()]);
   assert.equal(service.snapshot().status, 'ready');
   const dirs = await readdir(directory); assert.equal(dirs.length, 1);

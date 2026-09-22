@@ -208,7 +208,7 @@ function registerIpc(): void {
   ipcMain.handle("updates:install", event => { sessionFor(event); return updates.install(); });
   ipcMain.handle("updates:release", event => {
     sessionFor(event);
-    return shell.openExternal(updates.snapshot().releaseUrl || "https://github.com/wwdreamb/Lodex/releases/latest");
+    return shell.openExternal(updates.snapshot().releaseUrl || "https://github.com/kjiglobal/Lodex/releases/latest");
   });
   ipcMain.handle("updates:restart", event => {
     sessionFor(event);

@@ -3,8 +3,8 @@ import { createReadStream, promises as fs } from "node:fs";
 import path from "node:path";
 import type { UpdateState } from "./update-types";
 
-const repository = "https://github.com/wwdreamb/Lodex";
-const latestEndpoint = "https://api.github.com/repos/wwdreamb/Lodex/releases/latest";
+const repository = "https://github.com/kjiglobal/Lodex";
+const latestEndpoint = "https://api.github.com/repos/kjiglobal/Lodex/releases/latest";
 const maxPackageSize = 1_000_000_000;
 type Asset = { name: string; browser_download_url: string; size: number; digest?: string };
 type Release = { version: string; url: string; asset?: Asset; checksum?: Asset };
@@ -56,8 +56,8 @@ export function parseRelease(value: unknown, arch: string): Release {
 function trustedDownload(url: string): boolean {
   const value = new URL(url);
   return value.protocol === "https:" && !value.username && !value.password && !value.port &&
-    (value.hostname === "api.github.com" && value.pathname === "/repos/wwdreamb/Lodex/releases/latest" ||
-     value.hostname === "github.com" && value.pathname.startsWith("/wwdreamb/Lodex/releases/download/") ||
+    (value.hostname === "api.github.com" && value.pathname === "/repos/kjiglobal/Lodex/releases/latest" ||
+     value.hostname === "github.com" && value.pathname.startsWith("/kjiglobal/Lodex/releases/download/") ||
      value.hostname === "release-assets.githubusercontent.com" || value.hostname === "objects.githubusercontent.com");
 }
 

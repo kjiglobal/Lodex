@@ -8,9 +8,9 @@
 
 ## Install or upgrade
 
-[Download Lodex 0.4.1 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/download/v0.4.1/Lodex-0.4.1-amd64.deb), close Lodex, and open the package in App Center / Software Install. The [release checksum](https://github.com/wwdreamb/Lodex/releases/download/v0.4.1/SHA256SUMS) is also available.
+[Download Lodex 0.4.1 for Ubuntu](https://github.com/kjiglobal/Lodex/releases/download/v0.4.1/Lodex-0.4.1-amd64.deb), close Lodex, and open the package in App Center / Software Install. The [release checksum](https://github.com/kjiglobal/Lodex/releases/download/v0.4.1/SHA256SUMS) is also available.
 
-**Lodex 0.4.0 and earlier need this one manual upgrade to add the updater.** From 0.4.1 onward, use Help → Check for Updates for future stable releases.
+**After the repository move, install [Lodex 0.4.2](RELEASE-0.4.2.md) manually to restore update checks.** Version 0.4.1 uses the former release address; 0.4.2 uses the current repository. Then use Help → Check for Updates for future stable releases.
 
 In-app installation supports the installed Ubuntu `.deb` package, with an installer matching the computer's architecture. AppImage and development builds can check versions and open the release page for manual installation. Ubuntu 24.04+ on Intel/AMD 64-bit computers is the published download target. Checks run only when requested; updates are never installed silently.
 

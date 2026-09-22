@@ -1,6 +1,6 @@
 # Lodex 0.4.0 release notes
 
-[Lodex 0.4.0 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0) introduced the desktop controls below. See [the latest release](https://github.com/wwdreamb/Lodex/releases/latest) for the current installer. [Version 0.4.1](RELEASE-0.4.1.md) adds in-app update checks and installation.
+[Lodex 0.4.0 for Ubuntu](https://github.com/kjiglobal/Lodex/releases/tag/v0.4.0) introduced the desktop controls below. See [the latest release](https://github.com/kjiglobal/Lodex/releases/latest) for the current installer. [Version 0.4.1](RELEASE-0.4.1.md) adds in-app update checks and installation.
 
 - Paste screenshots and images directly into the prompt with Ctrl+V. Images show previews, can be removed, and remain with ordinary drafts after a reload. File attachments and clipboard text continue to work.
 - Collapsible Pinned, Projects, and Recents sections. Projects contain chats from opened folders, and pinned chats stay at the top.
@@ -18,7 +18,7 @@ Ubuntu 24.04+ on amd64. Model choices and connected tools depend on the signed-i
 
 ## Verification
 
-The [Ubuntu 24.04 build](https://github.com/wwdreamb/Lodex/actions/runs/35763842759) passed all 3 runtime and 14 browser checks, installed-package recovery, native desktop checks, and real speech transcription with offline model caching. The same installer was also installed and opened successfully in the Ubuntu 26.04 VirtualBox test VM.
+The [Ubuntu 24.04 build](https://github.com/kjiglobal/Lodex/actions/runs/35763842759) passed all 3 runtime and 14 browser checks, installed-package recovery, native desktop checks, and real speech transcription with offline model caching. The same installer was also installed and opened successfully in the Ubuntu 26.04 VirtualBox test VM.
 
 `npm run build` checks renderer and desktop types. `npm test` covers streaming/recovery, persistent image drafts, groups, product switching, model and access controls, and temporary-chat behavior. `node --test tests/desktop.test.cjs` exercises the native menus, real clipboard images, attachment authorization, separate windows and folders, and temporary-image cleanup. Run the desktop check under `xvfb-run -a` on headless Ubuntu.
 
