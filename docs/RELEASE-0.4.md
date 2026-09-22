@@ -16,6 +16,8 @@ Ubuntu 24.04+ on amd64. Model choices and connected tools depend on the signed-i
 
 ## Verification
 
+The [Ubuntu 24.04 build](https://github.com/wwdreamb/Lodex/actions/runs/35763842759) passed all 3 runtime and 14 browser checks, installed-package recovery, native desktop checks, and real speech transcription with offline model caching. The same installer was also installed and opened successfully in the Ubuntu 26.04 VirtualBox test VM.
+
 `npm run build` checks renderer and desktop types. `npm test` covers streaming/recovery, persistent image drafts, groups, product switching, model and access controls, and temporary-chat behavior. `node --test tests/desktop.test.cjs` exercises the native menus, real clipboard images, attachment authorization, separate windows and folders, and temporary-image cleanup. Run the desktop check under `xvfb-run -a` on headless Ubuntu.
 
 `scripts/verify-dictation.cjs` downloads the actual model, transcribes the public JFK sample, checks that text reaches the composer, and verifies microphone release on cancel. It makes no paid API calls. Set `LODEX_TEST_EXECUTABLE=/usr/bin/lodex` to verify the installed package. The Ubuntu workflow also installs the .deb and kills a renderer to verify automatic recovery.

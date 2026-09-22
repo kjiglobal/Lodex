@@ -24,11 +24,11 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Local image attachments and generated-image rendering.
 - Command, file-change, permission, and user-input approval surfaces.
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
-- Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Alt+N` opens a quick chat, and `Ctrl/Cmd+Shift+O` opens a project.
+- Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Shift+N` starts a temporary chat, and `Ctrl/Cmd+O` opens a project.
 
-See [the 0.4 release notes](docs/RELEASE-0.4.md) for changes, verification, and feature limits. The published installer below remains 0.3 until the 0.4 package completes Ubuntu verification.
+The [Lodex 0.4 Ubuntu preview](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0) has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. [Download its installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/Lodex-0.4.0-amd64.deb), open it in App Center / Software Install, and choose Install to upgrade. See [the 0.4 release notes](docs/RELEASE-0.4.md) for changes and feature limits. The stable 0.3 installer remains available below.
 
-## Install the published version on Ubuntu (no terminal needed)
+## Install the stable version on Ubuntu (no terminal needed)
 
 1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.3.0/Lodex-0.3.0-amd64.deb) on your Ubuntu laptop.
 2. Open **Downloads** and double-click **Lodex-0.3.0-amd64.deb**.
