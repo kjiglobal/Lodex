@@ -15,7 +15,7 @@ import {
   Pencil,
   RotateCcw,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThreadItem, UserInput } from "../types";
@@ -188,6 +188,9 @@ const MessageItem = memo(function MessageItem({ item, onEdit, onRegenerate, canR
 });
 
 export function MessageList({ items, loading, running, onEdit, onRegenerate }: Props) {
+  const regenerateRef = useRef(onRegenerate);
+  regenerateRef.current = onRegenerate;
+  const retry = useCallback(() => regenerateRef.current(), []);
   const container = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const [showJump, setShowJump] = useState(false);
@@ -212,7 +215,7 @@ export function MessageList({ items, loading, running, onEdit, onRegenerate }: P
       setShowJump(!following.current);
     }}>
       {items.length > visibleCount && <button className="load-earlier secondary-button" onClick={() => { following.current = false; setVisibleCount(value => value + 150); }}>Show earlier messages</button>}
-      {items.slice(-visibleCount).map((item) => <ErrorBoundary compact key={item.id}><MessageItem item={item} onEdit={running ? undefined : onEdit} onRegenerate={onRegenerate} canRegenerate={!running && item.id === lastAnswer?.id} /></ErrorBoundary>)}
+      {items.slice(-visibleCount).map((item) => <ErrorBoundary compact key={item.id}><MessageItem item={item} onEdit={running ? undefined : onEdit} onRegenerate={retry} canRegenerate={!running && item.id === lastAnswer?.id} /></ErrorBoundary>)}
       {running && !items.some((item) => item.type === "agentMessage" && !item.text) && (
         <div className="working-indicator"><span /><span /><span /></div>
       )}
