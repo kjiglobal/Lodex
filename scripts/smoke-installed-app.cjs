@@ -4,9 +4,9 @@ const fs = require("node:fs/promises");
 const { setTimeout: delay } = require("node:timers/promises");
 
 async function main() {
-  const app = spawn("/usr/bin/lodex", ["--remote-debugging-port=9222"], { stdio: ["ignore", "pipe", "pipe"] });
+  const app = spawn("/usr/bin/lodex", ["--remote-debugging-port=9222", "--inspect=127.0.0.1:9223"], { stdio: ["ignore", "pipe", "pipe"] });
   app.stdout.pipe(process.stdout); app.stderr.pipe(process.stderr);
-  let launchError, socket;
+  let launchError, socket, mainSocket;
   app.on("error", error => { launchError = error; });
   let nextId = 0;
   async function connect() {
@@ -29,9 +29,8 @@ async function main() {
     }
     throw new Error("The installed app did not open its window.");
   }
-  const send = (method, params) => new Promise((resolve, reject) => {
+  const send = (method, params, target = socket) => new Promise((resolve, reject) => {
     const id = ++nextId;
-    const target = socket;
     const timer = setTimeout(() => { target.removeEventListener("message", listener); reject(new Error(`${method} timed out`)); }, 35000);
     const listener = event => {
       const message = JSON.parse(event.data);
@@ -43,8 +42,8 @@ async function main() {
     target.addEventListener("message", listener);
     target.send(JSON.stringify({ id, method, params }));
   });
-  const evaluate = async expression => {
-    const result = await send("Runtime.evaluate", { awaitPromise: true, returnByValue: true, expression });
+  const evaluate = async (expression, target = socket) => {
+    const result = await send("Runtime.evaluate", { awaitPromise: true, returnByValue: true, expression }, target);
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
     return result.result.value;
   };
@@ -72,19 +71,32 @@ async function main() {
     const saved = await evaluate(`JSON.parse(localStorage.getItem('lodex-draft-new') || '{}').text`);
     if (saved !== "Saved recovery test draft") throw new Error("Draft was not persisted before crash.");
     console.log("LODEX_SMOKE_PHASE draft-persisted-crashing-renderer");
-    socket.send(JSON.stringify({ id: ++nextId, method: "Page.crash" }));
-    await delay(1500);
+    const mainTargets = await (await fetch("http://127.0.0.1:9223/json/list")).json();
+    mainSocket = new WebSocket(mainTargets[0].webSocketDebuggerUrl);
+    await new Promise((resolve, reject) => {
+      mainSocket.addEventListener("open", resolve, { once: true });
+      mainSocket.addEventListener("error", reject, { once: true });
+    });
+    // Disconnect the renderer debugger before killing its process. Observe
+    // recovery through the main process, whose connection survives the crash.
     socket.close();
-    await connect();
-    console.log("LODEX_SMOKE_PHASE reconnected-after-crash");
+    await evaluate(`process.mainModule.require('electron').BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer()`, mainSocket);
     const recovered = await evaluate(`(async () => {
-      for (let i = 0; i < 100 && !document.querySelector('.composer textarea'); i++) await new Promise(resolve => setTimeout(resolve, 100));
-      return { rendererRecovered: !!document.querySelector('.composer'), draftRecovered: document.querySelector('.composer textarea')?.value === 'Saved recovery test draft' };
-    })()`);
+      const window = process.mainModule.require('electron').BrowserWindow.getAllWindows()[0];
+      for (let i = 0; i < 100; i++) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (window.webContents.isCrashed() || window.webContents.isLoading()) continue;
+        try {
+          const state = await window.webContents.executeJavaScript("({ rendererRecovered: !!document.querySelector('.composer'), draftRecovered: document.querySelector('.composer textarea')?.value === 'Saved recovery test draft' })");
+          if (state.rendererRecovered) return state;
+        } catch {}
+      }
+      return { rendererRecovered: false, draftRecovered: false };
+    })()`, mainSocket);
     if (!recovered.rendererRecovered || !recovered.draftRecovered) throw new Error(`Recovery failed: ${JSON.stringify(recovered)}`);
-    const screenshot = await send("Page.captureScreenshot", { format: "png" });
-    await fs.writeFile("release/ubuntu-smoke.png", Buffer.from(screenshot.data, "base64"));
+    const screenshot = await evaluate(`(async () => (await process.mainModule.require('electron').BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64'))()`, mainSocket);
+    await fs.writeFile("release/ubuntu-smoke.png", Buffer.from(screenshot, "base64"));
     console.log(`LODEX_SMOKE_OK ${JSON.stringify({ ...snapshot, ...recovered })}`);
-  } finally { socket?.close(); app.kill(); }
+  } finally { socket?.close(); mainSocket?.close(); app.kill(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
