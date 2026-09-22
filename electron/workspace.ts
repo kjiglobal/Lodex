@@ -36,6 +36,7 @@ export class WorkspaceService {
   private projects: string[] = [];
   private allowedImages = new Set<string>();
   private allowedAttachments = new Set<string>();
+  private temporaryImages = new Map<string, Buffer>();
 
   async load(): Promise<void> {
     try {
@@ -105,13 +106,18 @@ export class WorkspaceService {
     if (image.isEmpty() || dimensions.width * dimensions.height > 40_000_000) throw new Error("This clipboard image is not supported or is too large.");
     const png = image.toPNG();
     if (png.length > 20 * 1024 * 1024) throw new Error("Paste an image smaller than 20 MB.");
-    const directory = path.join(app.getPath("userData"), temporary ? "temporary-images" : "pasted-images");
+    if (temporary) {
+      const key = `temporary-${randomUUID()}.png`;
+      this.temporaryImages.set(key, png);
+      return { path: key, name: "Pasted image.png", kind: "image" as const, size: png.length };
+    }
+    const directory = path.join(app.getPath("userData"), "pasted-images");
     await fs.mkdir(directory, { recursive: true, mode: 0o700 });
     const file = path.join(directory, `${randomUUID()}.png`);
     await fs.writeFile(file, png, { mode: 0o600, flag: "wx" });
     this.allowedImages.add(file);
     this.allowedAttachments.add(file);
-    if (!temporary) await this.saveAttachments();
+    await this.saveAttachments();
     return { path: file, name: "Pasted image.png", kind: "image" as const, size: png.length };
   }
 
@@ -124,13 +130,11 @@ export class WorkspaceService {
     await fs.writeFile(file, JSON.stringify(permanent.slice(-500)), { encoding: "utf8", mode: 0o600 });
   }
 
-  async clearTemporaryImages() {
-    const directory = path.join(app.getPath("userData"), "temporary-images");
-    for (const file of this.allowedImages) {
-      if (path.dirname(file) !== directory) continue;
-      await fs.unlink(file).catch(() => undefined);
-      this.allowedImages.delete(file); this.allowedAttachments.delete(file);
-    }
+  async clearTemporaryImages() { this.temporaryImages.clear(); }
+
+  temporaryImage(key: string): Uint8Array | undefined {
+    const image = this.temporaryImages.get(key);
+    return image ? new Uint8Array(image) : undefined;
   }
 
   async chooseImages(): Promise<Array<{ path: string; name: string }>> {
@@ -168,6 +172,8 @@ export class WorkspaceService {
     if (!Array.isArray(value) || value.length > 8) throw new Error("Choose up to eight attachments.");
     return Promise.all(value.map(async (attachment: unknown) => {
       if (!attachment || typeof attachment !== "object" || !("path" in attachment) || typeof attachment.path !== "string") throw new Error("Invalid attachment.");
+      const temporary = this.temporaryImages.get(attachment.path);
+      if (temporary) return { type: "image", url: `data:image/png;base64,${temporary.toString("base64")}`, detail: "auto" };
       const file = await fs.realpath(attachment.path);
       if (!this.allowedAttachments.has(file) && !this.allowedImages.has(file)) throw new Error("Please attach this file again using Add photos and files.");
       const stat = await fs.stat(file);
@@ -292,6 +298,7 @@ export class WorkspaceService {
   }
 
   canLoadImage(filePath: string): boolean {
+    if (this.temporaryImages.has(filePath)) return true;
     if (!existsSync(filePath)) return false;
     const realPath = realpathSync.native(filePath);
     if (this.allowedImages.has(realPath)) return true;

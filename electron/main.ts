@@ -325,6 +325,10 @@ app.whenReady().then(async () => {
     if (!filePath || !/\.(png|jpe?g|webp|gif)$/i.test(filePath) || ![...sessions.values()].some(value => value.workspace.canLoadImage(filePath))) {
       return new Response("Unsupported image", { status: 400 });
     }
+    for (const value of sessions.values()) {
+      const image = value.workspace.temporaryImage(filePath);
+      if (image) return new Response(new Uint8Array(image), { headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+    }
     return net.fetch(pathToFileURL(filePath).toString());
   });
 

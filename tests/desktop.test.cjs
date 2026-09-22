@@ -58,9 +58,13 @@ test('desktop menus, clipboard persistence, temporary images and independent win
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       return window.lodex.workspace.pasteImage(bytes, true);
     }, png);
+    const temporaryInputs = await second.evaluate(image => window.lodex.workspace.attachmentInputs([image]), pasted);
+    assert.equal(temporaryInputs[0].type, 'image');
+    assert(temporaryInputs[0].url.startsWith('data:image/png;base64,'));
+    await assert.rejects(stat(pasted.path));
     assert(!(await readFile(path.join(data, 'attachments.json'), 'utf8')).includes(pasted.path.replaceAll('\\', '\\\\')));
     await second.evaluate(() => window.lodex.workspace.clearTemporary());
-    await assert.rejects(stat(pasted.path));
+    await assert.rejects(second.evaluate(image => window.lodex.workspace.attachmentInputs([image]), pasted));
     await second.close();
     assert.equal(await input.inputValue(), 'First window draft');
   } finally {

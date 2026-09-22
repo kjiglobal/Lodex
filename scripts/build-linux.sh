@@ -30,7 +30,9 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
 esac
 
-npm ci --include=optional
+# Dictation uses the bundled browser WASM backend. The development library's
+# Node-only CUDA binaries are unused and must not delay Linux builds.
+ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci --include=optional
 npm run generate:icon
 
 if [[ ! -d "node_modules/@openai/codex-linux-${codex_arch}" ]]; then
