@@ -69,4 +69,12 @@ Temporary chats pass `ephemeral: true` to `thread/start`, keep drafts in React s
 
 Dictation records microphone audio only after the microphone button is pressed. A one-time model setup precedes recording. Audio is capped at one minute, resampled to 16 kHz mono, checked for silence, and sent to a dedicated CPU/WASM Whisper worker. It never reaches the OpenAI service or disk. The worker fetches public model files from Hugging Face; application code and WASM are bundled. CSP permits only the model host/CDN in addition to existing OpenAI connections. Cancellation/unmount terminates the worker and releases audio tracks. Only the resulting editable text can be sent as a normal chat message.
 
-See [0.4 release notes](RELEASE-0.4.md) for the current supported features, compatibility, and verification workflow. The [0.3 release notes](RELEASE-0.3.md) document the earlier recovery improvements.
+## Ubuntu updates
+
+`electron/updates.ts` owns one update state machine shared by the windows. It checks only the public Lodex GitHub repository's latest stable release on user request. The renderer can request checks, download, cancellation, installation, and restart; it cannot supply a URL, path, command, or target version. Main-frame IPC validation applies to every update action.
+
+Downloads use bounded HTTPS requests with validated GitHub redirect hosts, private generated directories, byte-count limits, and SHA-256 verification against `SHA256SUMS` and GitHub's asset digest when present. The installer is checked again immediately before use. `electron/update-installer.ts` validates the Debian package's name, version, and architecture, invokes a fixed `pkexec`/`apt-get` argument list without a shell, and checks the installed version with `dpkg-query`. Ubuntu owns authentication; Lodex never handles passwords. The app prevents quitting during installation, and restarting is a separate user action. AppImage and development builds offer manual installation through the release page.
+
+This follows [Electron's Linux package-manager guidance](https://www.electronjs.org/docs/latest/api/auto-updater) and uses [polkit's normal authentication agent](https://polkit.pages.freedesktop.org/polkit/pkexec.1.html). Release publication is an explicit workflow-dispatch option in a separate job that runs only after Ubuntu verification passes; ordinary pushes and pull requests cannot publish a release.
+
+See [0.4.1 release notes](RELEASE-0.4.1.md) for update behavior and [0.4 release notes](RELEASE-0.4.md) for the desktop controls. The [0.3 release notes](RELEASE-0.3.md) document the earlier recovery improvements.

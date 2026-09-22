@@ -6,6 +6,8 @@ import { CodexClient } from "./codex-client";
 import { WorkspaceService } from "./workspace";
 import { installMenu } from "./menu";
 import { accessMode, sandboxMode, sandboxPolicy } from "./access";
+import { UpdateService } from "./updates";
+import { installUbuntuUpdate, supportsPackageUpdates } from "./update-installer";
 
 // Software rendering avoids blank surfaces on Linux drivers after suspend.
 // Keep an opt-in for machines whose GPU is known to work well with Electron.
@@ -31,6 +33,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
+let updates: UpdateService;
 type WindowSession = { workspace: WorkspaceService; codex: CodexClient };
 const sessions = new Map<number, WindowSession>();
 function sessionFor(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): WindowSession {
@@ -86,6 +89,12 @@ async function createWindow(): Promise<void> {
   });
 
   const window = mainWindow;
+  window.on("close", event => {
+    if (updates?.installing) {
+      event.preventDefault();
+      window.webContents.send("app:menu", "updates");
+    }
+  });
   const sendToRenderer = (channel: string, value: unknown) => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
       try { window.webContents.send(channel, value); } catch { /* Renderer is recovering. */ }
@@ -191,6 +200,20 @@ async function createWindow(): Promise<void> {
 }
 
 function registerIpc(): void {
+  ipcMain.handle("updates:state", event => { sessionFor(event); return updates.snapshot(); });
+  ipcMain.handle("updates:check", event => { sessionFor(event); return updates.check(); });
+  ipcMain.handle("updates:download", event => { sessionFor(event); return updates.download(); });
+  ipcMain.handle("updates:cancel", event => { sessionFor(event); return updates.cancel(); });
+  ipcMain.handle("updates:install", event => { sessionFor(event); return updates.install(); });
+  ipcMain.handle("updates:release", event => {
+    sessionFor(event);
+    return shell.openExternal(updates.snapshot().releaseUrl || "https://github.com/wwdreamb/Lodex/releases/latest");
+  });
+  ipcMain.handle("updates:restart", event => {
+    sessionFor(event);
+    if (updates.snapshot().status !== "installed") throw new Error("Install an update before restarting.");
+    app.relaunch(); app.quit();
+  });
   ipcMain.handle("app:info", () => ({ version: app.getVersion(), softwareRendering }));
   ipcMain.on("app:report-error", (_event, category: unknown) => {
     if (typeof category === "string" && /^[a-z-]{1,80}$/.test(category)) recordDiagnostic(category);
@@ -319,6 +342,17 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  updates = new UpdateService({
+    version: app.getVersion(), arch: process.arch, directory: path.join(app.getPath("userData"), "updates"),
+    canInstall: await supportsPackageUpdates(app.isPackaged), install: installUbuntuUpdate,
+    changed: state => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+          try { window.webContents.send("updates:changed", state); } catch { /* The update survives renderer recovery. */ }
+        }
+      }
+    },
+  });
   protocol.handle("lodex-image", (request) => {
     const requestUrl = new URL(request.url);
     const filePath = requestUrl.searchParams.get("path");
@@ -349,4 +383,12 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => { for (const value of sessions.values()) { value.codex.stop(); void value.workspace.clearTemporaryImages(); } });
+app.on("before-quit", event => {
+  if (updates?.installing) {
+    event.preventDefault();
+    mainWindow?.show(); mainWindow?.webContents.send("app:menu", "updates");
+    return;
+  }
+  updates?.cancel();
+  for (const value of sessions.values()) { value.codex.stop(); void value.workspace.clearTemporaryImages(); }
+});

@@ -1,3 +1,6 @@
+import type { UpdateState } from "../electron/update-types";
+export type { UpdateState } from "../electron/update-types";
+
 export type Account = {
   type: string;
   email?: string | null;
@@ -176,6 +179,16 @@ export type PendingServerRequest = {
 
 export type LodexApi = {
   platform: string;
+  updates: {
+    state(): Promise<UpdateState>;
+    check(): Promise<UpdateState>;
+    download(): Promise<UpdateState>;
+    cancel(): Promise<UpdateState>;
+    install(): Promise<UpdateState>;
+    openRelease(): Promise<void>;
+    restart(): Promise<void>;
+    onChange(callback: (state: UpdateState) => void): () => void;
+  };
   app: {
     onMenu(callback: (action: string) => void): () => void;
     reportError(category: string): void;

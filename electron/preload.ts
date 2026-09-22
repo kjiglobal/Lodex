@@ -8,6 +8,16 @@ const on = (channel: string, callback: (value: unknown) => void) => {
 
 contextBridge.exposeInMainWorld("lodex", {
   platform: process.platform,
+  updates: {
+    state: () => ipcRenderer.invoke("updates:state"),
+    check: () => ipcRenderer.invoke("updates:check"),
+    download: () => ipcRenderer.invoke("updates:download"),
+    cancel: () => ipcRenderer.invoke("updates:cancel"),
+    install: () => ipcRenderer.invoke("updates:install"),
+    openRelease: () => ipcRenderer.invoke("updates:release"),
+    restart: () => ipcRenderer.invoke("updates:restart"),
+    onChange: (callback: (state: unknown) => void) => on("updates:changed", callback),
+  },
   app: {
     onMenu: (callback: (action: unknown) => void) => on("app:menu", callback),
     reportError: (category: string) => ipcRenderer.send("app:report-error", category),
