@@ -299,3 +299,24 @@ test("voice setup is cancellable and recognition inserts text without sending", 
   await expect(page.getByRole("textbox", { name: "Message Lodex" })).toHaveValue("My draft: These are my dictated words.");
   expect(await page.evaluate(() => (window as any).__requests.some((r: any) => r.method === "turn/start"))).toBe(false);
 });
+
+test("long model menus fit a small Ubuntu window", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => {
+    const w = window as any; const original = w.lodex.codex.request;
+    w.lodex.codex.request = async (method: string, params: any) => {
+      const result = await original(method, params);
+      if (method === "model/list") return { data: Array.from({ length: 8 }, (_, i) => ({ ...result.data[0], id: "model-" + i, displayName: "Available model " + i })) };
+      return result;
+    };
+    w.__emit({ method: "account/updated" });
+  });
+  await page.setViewportSize({ width: 720, height: 540 });
+  await expect(page.getByLabel("Model and reasoning")).toContainText("Available model");
+  await page.getByLabel("Model and reasoning").click();
+  const bounds = await page.getByRole("menu", { name: "Model options" }).boundingBox();
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(720);
+  await expect(page.getByTitle("Voice to text", { exact: true })).toBeInViewport();
+});

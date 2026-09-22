@@ -10,7 +10,11 @@ test('desktop menus, clipboard persistence, temporary images and independent win
   const home = path.join(root, 'codex'); const data = path.join(root, 'app');
   const projectA = path.join(root, 'project-a'); const projectB = path.join(root, 'project-b');
   await Promise.all([home, data, projectA, projectB].map(directory => mkdir(directory)));
-  const instance = await electron.launch({ args: [path.resolve('.'), '--use-fake-device-for-media-stream'], env: { ...process.env, CODEX_HOME: home, LODEX_USER_DATA_DIR: data } });
+  const instance = await electron.launch({
+    ...(process.env.LODEX_TEST_EXECUTABLE ? { executablePath: process.env.LODEX_TEST_EXECUTABLE } : {}),
+    args: [...(process.env.LODEX_TEST_EXECUTABLE ? [] : [path.resolve('.')]), '--use-fake-device-for-media-stream'],
+    env: { ...process.env, CODEX_HOME: home, LODEX_USER_DATA_DIR: data },
+  });
   try {
     await instance.evaluate(({ clipboard }) => { globalThis.__savedClipboard = clipboard.availableFormats().map(format => [format, clipboard.readBuffer(format)]); });
     const first = await instance.firstWindow();

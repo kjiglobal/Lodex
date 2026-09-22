@@ -49,11 +49,11 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm test
-          sudo chown root:root node_modules/electron/dist/chrome-sandbox
-          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-          xvfb-run -a node --test tests/desktop.test.cjs
       - name: Install and verify the package
         run: bash scripts/verify-ubuntu-package.sh
+      - name: Verify native desktop controls
+        if: inputs.verify_run == ''
+        run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test tests/desktop.test.cjs
       - name: Verify local voice typing with real audio
         if: inputs.verify_run == ''
         run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node scripts/verify-dictation.cjs | tee release/voice-smoke.log

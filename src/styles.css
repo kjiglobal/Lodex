@@ -633,7 +633,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 [data-theme="dark"] .prompt-control-trigger.full-access { color: #ffa565; }
 .prompt-effort { color: var(--muted); }
 .prompt-model-name { overflow: hidden; text-overflow: ellipsis; max-width: 205px; }
-.prompt-options { position: absolute; z-index: 90; bottom: 46px; right: 0; width: 325px; max-width: calc(100vw - 40px); max-height: min(430px, 55vh); overflow: auto; padding: 7px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); }
+.prompt-options { position: absolute; z-index: 90; bottom: 46px; right: 0; width: 325px; max-width: calc(100vw - 40px); max-height: min(430px, 40vh); overflow: auto; padding: 7px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); }
 .prompt-control.access .prompt-options { left: -35px; right: auto; }
 .prompt-options > button { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; padding: 11px 12px; text-align: left; border: 0; border-radius: 10px; background: none; font-size: 13px; cursor: pointer; }
 .prompt-options > button:hover { background: var(--hover); }
