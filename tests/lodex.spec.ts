@@ -19,7 +19,7 @@ async function setup(page: Page) {
     w.__finish = () => { const thread = threads.at(-1); thread.status = { type: "idle" }; const turn = thread.turns.at(-1); turn.status = "completed"; save(); w.__emit({ method: "turn/completed", params: { threadId: thread.id, turn } }); };
     w.lodex = {
       platform: "linux",
-      app: { onMenu: (callback: any) => { w.__menu = callback; return () => {}; }, reportError: (category: string) => { w.__reported = [...(w.__reported || []), category]; }, info: async () => ({ version: "0.4.0", softwareRendering: true }), openDiagnostics: async () => {}, exportChat: async (title: string, content: string) => { w.__export = { title, content }; return true; } },
+      app: { onMenu: (callback: any) => { w.__menu = callback; return () => {}; }, reportError: (category: string) => { w.__reported = [...(w.__reported || []), category]; }, info: async () => ({ version: "0.4.1", softwareRendering: true }), openDiagnostics: async () => {}, exportChat: async (title: string, content: string) => { w.__export = { title, content }; return true; } },
       codex: {
         request: async (method: string, params: any = {}) => {
           w.__requests.push({ method, params });
@@ -64,10 +64,75 @@ async function setup(page: Page) {
         attachmentInputs: async (files: any[]) => files.map(file => file.kind === "image" ? { type: "localImage", path: file.path } : ({ type: "text", text: "Attached file: " + file.name + "\nSample notes", text_elements: [] })),
       }, git: { status: async () => null },
     };
+    {
+    const w = window as any;
+    const listeners = new Set<(value: any) => void>();
+    let value = { status: "idle", currentVersion: "0.4.1", latestVersion: "0.5.0", canInstall: true, message: "Check for the latest stable Lodex release." };
+    const set = (next: any) => { value = { ...value, ...next }; for (const listener of listeners) listener(value); return value; };
+    w.__updateState = set;
+    w.lodex.updates = {
+      state: async () => value,
+      onChange: (fn: any) => { listeners.add(fn); return () => listeners.delete(fn); },
+      check: async () => { w.__updateChecks = (w.__updateChecks || 0) + 1; return set(w.__updateFailure ? { status: "error", message: "Check your internet connection and try again." } : w.__updateCurrent ? { status: "current", message: "Lodex 0.4.1 is up to date." } : { status: "available", message: "Lodex 0.5.0 is available." }); },
+      download: async () => set({ status: "downloading", progress: 25, message: "Downloading the Ubuntu update…" }),
+      cancel: async () => set({ status: "available", message: "Download canceled." }),
+      install: async () => { w.__updateInstalls = (w.__updateInstalls || 0) + 1; return set({ status: "installing", message: "Approve the Ubuntu password prompt to install." }); },
+      restart: async () => { w.__updateRestart = true; },
+      openRelease: async () => { w.__releaseOpened = true; },
+    };
+    }
   });
   await page.goto("/");
   await expect(page.getByRole("textbox", { name: "Message Lodex" })).toBeEnabled();
 }
+
+test("About and Help update controls support download, cancel, install and an explicit restart", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => (window as any).__menu("about"));
+  const dialog = page.getByRole("dialog", { name: "About Lodex" });
+  await expect(dialog).toContainText("Version 0.4.1");
+  expect(await page.evaluate(() => (window as any).__updateChecks || 0)).toBe(0);
+  await dialog.getByRole("button", { name: "Check for Updates", exact: true }).click();
+  await expect(dialog).toContainText("0.5.0 is available");
+  await dialog.getByRole("button", { name: "Download Update", exact: true }).click();
+  await expect(dialog.getByRole("progressbar")).toHaveAttribute("value", "25");
+  await dialog.getByRole("button", { name: "Cancel download" }).click();
+  await expect(dialog).toContainText("Download canceled");
+  await dialog.getByRole("button", { name: "Download Update", exact: true }).click();
+  await dialog.getByTitle("Close update window").click();
+  await page.evaluate(() => (window as any).__updateState({ status: "ready", message: "Lodex 0.5.0 is ready to install. Ubuntu will ask for your password." }));
+  await page.evaluate(() => (window as any).__menu("about"));
+  await expect(dialog.getByRole("button", { name: "Install Update" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Install Update" }).click();
+  await expect(dialog.getByRole("button", { name: "Installing…" })).toBeDisabled();
+  await page.evaluate(() => (window as any).__updateState({ status: "installed", message: "Lodex 0.5.0 is installed. Restart Lodex when your tasks are finished." }));
+  expect(await page.evaluate(() => !!(window as any).__updateRestart)).toBe(false);
+  await page.screenshot({ path: "test-results/lodex-updates-installed.png" });
+  await dialog.getByRole("button", { name: "Restart Lodex" }).click();
+  expect(await page.evaluate(() => (window as any).__updateRestart)).toBe(true);
+});
+
+test("update check reports current and offline states, supports retry and fits small dark windows", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => { (window as any).__updateCurrent = true; (window as any).__menu("updates"); });
+  const dialog = page.getByRole("dialog", { name: "About Lodex" });
+  await expect(dialog).toContainText("0.4.1 is up to date");
+  await dialog.getByTitle("Close update window").click();
+  await page.evaluate(() => { (window as any).__updateFailure = true; (window as any).__menu("updates"); });
+  await expect(dialog).toContainText("internet connection");
+  await page.evaluate(() => { (window as any).__updateFailure = false; (window as any).__updateCurrent = false; });
+  await dialog.getByRole("button", { name: "Check for Updates", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Download Update", exact: true })).toBeVisible();
+  await page.screenshot({ path: "test-results/lodex-updates.png" });
+  await page.setViewportSize({ width: 720, height: 540 });
+  await page.evaluate(() => document.documentElement.dataset.theme = "dark");
+  const box = await dialog.boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(540);
+  await page.screenshot({ path: "test-results/lodex-updates-compact.png" });
+  await dialog.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
 
 async function start(page: Page) {
   await page.getByRole("textbox", { name: "Message Lodex" }).fill("Help me with this project");
@@ -279,7 +344,7 @@ test("temporary chat leaves no persistent draft or history and menu actions are 
   await expect(page.getByRole("textbox", { name: "Message Lodex" })).toHaveValue("Keep my ordinary draft");
   expect(await page.evaluate(() => sessionStorage.getItem("test-runtime"))).not.toContain("Private temporary words");
   await page.evaluate(() => (window as any).__menu("settings"));
-  await expect(page.getByRole("dialog")).toContainText("Lodex 0.4.0");
+  await expect(page.getByRole("dialog")).toContainText("Lodex 0.4.1");
 });
 
 test("voice setup is cancellable and recognition inserts text without sending", async ({ page }) => {

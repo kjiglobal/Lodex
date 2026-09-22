@@ -19,7 +19,9 @@ export function installMenu(newWindow: () => void) {
     { role: "viewMenu" },
     { label: "Help", submenu: [
       { label: `Lodex ${app.getVersion()}`, enabled: false },
-      { label: "About Lodex", click: () => app.showAboutPanel() },
+      { label: "About Lodex", click: () => send("about") },
+      { label: "Check for Updates…", click: () => send("updates") },
+      { type: "separator" },
       { label: "Settings", click: () => send("settings") },
       { label: "Open Diagnostics", click: () => send("diagnostics") },
     ] },

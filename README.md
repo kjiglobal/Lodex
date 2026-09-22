@@ -2,9 +2,10 @@
 
 Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversation experience with Codex-style project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for authentication, agent turns, approvals, models, and terminal sessions.
 
-## Lodex 0.4.0 capabilities
+## Lodex 0.4.1 capabilities
 
 - Recovery from renderer crashes, saved drafts, safer streamed activity, and Linux software rendering by default.
+- Help and About update checks, verified Ubuntu downloads, installation through Ubuntu's password prompt, and an explicit restart when ready.
 - Clipboard image pasting with previews and saved drafts; collapsible Pinned, Projects, and Recents.
 - ChatGPT/Codex dropdown, native File menu, independent windows, temporary chats, and installed version under Help.
 - Access, model information, reasoning effort, and local voice-to-text controls below the prompt. Dictation needs a one-time speech model download; no separate API key.
@@ -26,22 +27,32 @@ Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversa
 - Light/dark, responsive UI inspired by the current ChatGPT and Codex product structure without using proprietary OpenAI assets.
 - Desktop shortcuts: `Ctrl/Cmd+K` searches chats, `Ctrl/Cmd+N` starts a new chat or task, `Ctrl/Cmd+Shift+N` starts a temporary chat, and `Ctrl/Cmd+O` opens a project.
 
-The latest stable release is [Lodex 0.4.0 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.0). It has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. See [the 0.4 release notes](docs/RELEASE-0.4.md) for changes and feature limits.
+The latest stable release is [Lodex 0.4.1 for Ubuntu](https://github.com/wwdreamb/Lodex/releases/tag/v0.4.1). It has passed Ubuntu package, recovery, desktop-control, and voice-typing verification. See [the 0.4.1 release notes](docs/RELEASE-0.4.1.md) for changes and feature limits.
 
-## Install Lodex 0.4.0 on Ubuntu (no terminal needed)
+## Install Lodex 0.4.1 on Ubuntu (no terminal needed)
 
-1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/Lodex-0.4.0-amd64.deb) on your Ubuntu laptop.
-2. Open **Downloads** and double-click **Lodex-0.4.0-amd64.deb**.
+1. [Download the Ubuntu installer](https://github.com/wwdreamb/Lodex/releases/download/v0.4.1/Lodex-0.4.1-amd64.deb) on your Ubuntu laptop.
+2. Open **Downloads** and double-click **Lodex-0.4.1-amd64.deb**.
 3. Click **Install** in App Center / Software Install and enter your Ubuntu password when asked.
 4. Open **Lodex** from the applications menu, then choose **Sign in with ChatGPT**.
 
-To upgrade an earlier version, close Lodex and install this package using the same steps. Your existing chats and preferences are retained. Open **Help** to check that the installed version is **Lodex 0.4.0**. The release also includes a [SHA-256 checksum](https://github.com/wwdreamb/Lodex/releases/download/v0.4.0/SHA256SUMS).
+To upgrade an earlier version, close Lodex and install this package using the same steps. Your existing chats and preferences are retained. Open **Help** to check that the installed version is **Lodex 0.4.1**. The release also includes a [SHA-256 checksum](https://github.com/wwdreamb/Lodex/releases/download/v0.4.1/SHA256SUMS).
 
 This installer is for **Ubuntu 24.04 or newer on Intel/AMD 64-bit laptops**. It includes Electron and the Linux Codex runtime; you do not need Node.js, npm, a global Codex installation, or an API key. Ubuntu installs the package's system dependencies automatically, so keep an internet connection available during installation. A ChatGPT account with Codex access is required to use the app.
 
 If double-clicking opens Archive Manager, right-click the file, choose **Open With**, and select **App Center** or **Software Install**. If neither is available, install **GDebi Package Installer** from App Center and open the file with GDebi.
 
 For an ARM64 laptop, build on ARM64 Ubuntu using the instructions below; the amd64 download is not compatible with ARM.
+
+## Check for updates
+
+Open **Help → Check for Updates**, or choose **Check for Updates** in **About Lodex** or **Settings**. Lodex reports your installed version and whether a newer stable release is available.
+
+1. Choose **Download Update**. You can cancel the download; Lodex verifies the completed installer before allowing installation.
+2. Choose **Install Update** and approve Ubuntu's password prompt. Keep Lodex open while Ubuntu installs the update.
+3. Choose **Restart Lodex** when your running tasks are finished. Your chats and settings are kept.
+
+**Version 0.4.0 and earlier need the manual 0.4.1 installation above to add these controls.** In-app installation supports the installed Ubuntu `.deb` package. AppImage and development builds offer the release page for manual installation. Updates are checked only when requested and are never installed silently.
 
 ## Requirements for building from source
 
@@ -68,14 +79,14 @@ Install Node.js 22 (latest 22.x) or newer before running the script. Ubuntu 24.0
 Artifacts are written to `release/`. Install the Debian package:
 
 ```bash
-sudo apt install ./release/Lodex-0.4.0-amd64.deb
+sudo apt install ./release/Lodex-0.4.1-amd64.deb
 ```
 
 Or run the AppImage:
 
 ```bash
-chmod +x release/Lodex-0.4.0-x86_64.AppImage
-./release/Lodex-0.4.0-x86_64.AppImage
+chmod +x release/Lodex-0.4.1-x86_64.AppImage
+./release/Lodex-0.4.1-x86_64.AppImage
 ```
 
 If the VM does not provide FUSE support, run the AppImage with `--appimage-extract-and-run` or use the Debian package.

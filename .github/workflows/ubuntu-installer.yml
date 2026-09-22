@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      publish_release:
+        description: 'Publish the verified installer as the latest GitHub release'
+        required: false
+        default: false
+        type: boolean
       verify_run:
         description: 'Optional run ID of an existing installer to verify again'
         required: false
@@ -54,6 +59,11 @@ jobs:
       - name: Verify native desktop controls
         if: inputs.verify_run == ''
         run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test tests/desktop.test.cjs
+      - name: Verify the Ubuntu update installer
+        if: inputs.verify_run == ''
+        run: |
+          sudo env CI=true python3 tests/update-helper.test.py
+          node scripts/verify-update-installer.cjs
       - name: Verify local voice typing with real audio
         if: inputs.verify_run == ''
         run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node scripts/verify-dictation.cjs | tee release/voice-smoke.log
@@ -77,3 +87,29 @@ jobs:
           name: Lodex-UI-regression-screenshots
           if-no-files-found: ignore
           path: test-results/*.png
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release && inputs.verify_run == ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lodex-ubuntu-amd64
+          path: release
+      - name: Publish verified Ubuntu installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test -f "docs/RELEASE-${version}.md"
+          (cd release && sha256sum -c SHA256SUMS)
+          gh release create "v${version}" "release/Lodex-${version}-amd64.deb" release/SHA256SUMS \
+            --target "$GITHUB_SHA" --title "Lodex ${version} for Ubuntu" --latest \
+            --notes-file "docs/RELEASE-${version}.md"

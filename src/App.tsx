@@ -26,6 +26,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { ToolsPanel } from "./components/ToolsPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { storage } from "./storage";
 import { normalizeItem } from "./protocol";
 const WorkspacePanel = lazy(() => import("./components/WorkspacePanel").then(module => ({ default: module.WorkspacePanel })));
@@ -103,6 +104,7 @@ export default function App() {
   const access: AccessMode = accessOverride || (surfaceMode === "chat" ? "read-only" : "workspace-write");
   const [projects, setProjects] = useState<string[]>([]);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [updateDialog, setUpdateDialog] = useState<"about" | "updates" | null>(null);
   const [instructions, setInstructions] = useState(() => storage.get("lodex-instructions") || "");
   const [archivedVisible, setArchivedVisible] = useState(false);
   const [archivedThreads, setArchivedThreads] = useState<Thread[]>([]);
@@ -754,6 +756,7 @@ export default function App() {
     if (action === "open-folder") void openWorkspace();
     if (action === "logout") void logout();
     if (action === "settings") setSettingsVisible(true);
+    if (action === "about" || action === "updates") { setSettingsVisible(false); setUpdateDialog(action); }
     if (action === "diagnostics") void window.lodex.app.openDiagnostics().catch(() => setError("Unable to open diagnostics."));
   }));
 
@@ -912,7 +915,8 @@ export default function App() {
         onRefresh={refreshWorkspace}
       /></Suspense>}
 
-      {settingsVisible && <SettingsDialog theme={theme} onTheme={setTheme} approvalPolicy={approvalPolicy} onApproval={setApprovalPolicy} instructions={instructions} onInstructions={value => { setInstructions(value); storage.set("lodex-instructions", value); }} onArchived={() => { setSettingsVisible(false); void openArchived(); }} onClose={() => setSettingsVisible(false)} />}
+      {settingsVisible && <SettingsDialog theme={theme} onTheme={setTheme} approvalPolicy={approvalPolicy} onApproval={setApprovalPolicy} instructions={instructions} onInstructions={value => { setInstructions(value); storage.set("lodex-instructions", value); }} onUpdates={() => { setSettingsVisible(false); setUpdateDialog("updates"); }} onArchived={() => { setSettingsVisible(false); void openArchived(); }} onClose={() => setSettingsVisible(false)} />}
+      {updateDialog && <UpdateDialog checkOnOpen={updateDialog === "updates"} onClose={() => setUpdateDialog(null)} />}
 
       {archivedVisible && <div className="modal-backdrop"><section className="settings-dialog" role="dialog" aria-modal="true" aria-label="Archived chats"><header><h2>Archived chats</h2><button className="icon-button" title="Close archived chats" onClick={() => setArchivedVisible(false)}><X size={20} /></button></header>{archivedThreads.map(thread => <div className="settings-row" key={thread.id}><span>{titleForThread(thread)}</span><button className="secondary-button" onClick={() => void restoreThread(thread)}>Restore</button></div>)}{!archivedThreads.length && <p className="drawer-empty">No archived chats.</p>}</section></div>}
 
