@@ -27,7 +27,7 @@ ELECTRON_RUN_AS_NODE=1 /opt/Lodex/lodex "$modules/codex/bin/codex.js" --version
 
 # Keep authentication, preferences and history isolated from the test account.
 test_home="$(mktemp -d)"
-trap 'find "$test_home/.config" -name diagnostics.log -exec cat {} \; > release/ubuntu-diagnostics.log; rm -rf -- "$test_home"' EXIT
+trap 'find "$test_home/.config" -name diagnostics.log -exec cat {} \; | tee release/ubuntu-diagnostics.log; rm -rf -- "$test_home"' EXIT
 mkdir -p "$test_home/.codex" "$test_home/.config"
 HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" CODEX_HOME="$test_home/.codex" \
   timeout 100s xvfb-run -a node scripts/smoke-installed-app.cjs 2>&1 | tee release/ubuntu-smoke.log

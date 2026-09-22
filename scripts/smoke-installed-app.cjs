@@ -80,7 +80,12 @@ async function main() {
     // Disconnect the renderer debugger before killing its process. Observe
     // recovery through the main process, whose connection survives the crash.
     socket.close();
-    await evaluate(`process.mainModule.require('electron').BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer()`, mainSocket);
+    const rendererPid = await evaluate(`process.mainModule.require('electron').BrowserWindow.getAllWindows()[0].webContents.getOSProcessId()`, mainSocket);
+    if (!Number.isInteger(rendererPid) || rendererPid <= 1 || rendererPid === app.pid) throw new Error("Invalid renderer PID.");
+    // SIGKILL models a renderer/OOM termination without waiting for Ubuntu's
+    // core-dump handler, which can block intentional Chromium crash commands.
+    process.kill(rendererPid, "SIGKILL");
+    console.log("LODEX_SMOKE_PHASE renderer-terminated");
     const recovered = await evaluate(`(async () => {
       const window = process.mainModule.require('electron').BrowserWindow.getAllWindows()[0];
       for (let i = 0; i < 100; i++) {
