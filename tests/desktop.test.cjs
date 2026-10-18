@@ -16,9 +16,10 @@ test('desktop menus, clipboard persistence, temporary images and independent win
     env: { ...process.env, CODEX_HOME: home, LODEX_USER_DATA_DIR: data },
   });
   try {
-    await instance.evaluate(({ clipboard }) => { globalThis.__savedClipboard = clipboard.availableFormats().map(format => [format, clipboard.readBuffer(format)]); });
     const first = await instance.firstWindow();
     await first.locator('.composer').waitFor();
+    // Clipboard access before app readiness can terminate Electron on Linux.
+    await instance.evaluate(({ clipboard }) => { globalThis.__savedClipboard = clipboard.availableFormats().map(format => [format, clipboard.readBuffer(format)]); });
     const menu = await instance.evaluate(({ Menu }) => Menu.getApplicationMenu().items.map(item => ({ label: item.label, children: item.submenu?.items.map(child => ({ label: child.label, accelerator: child.accelerator })) })));
     assert.deepEqual(menu.find(item => item.label === 'File').children.filter(item => item.label).map(item => item.label), ['New Window', 'New Chat', 'New Temporary Chat', 'Open Folder…', 'Close', 'Log Out', 'Quit Lodex']);
     assert(menu.find(item => item.label === 'Help').children.some(item => item.label === 'Lodex ' + require('../package.json').version));

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("lodex", {
     onChange: (callback: (state: unknown) => void) => on("updates:changed", callback),
   },
   app: {
+    openChatGPT: () => ipcRenderer.invoke("app:open-chatgpt"),
     onMenu: (callback: (action: unknown) => void) => on("app:menu", callback),
     reportError: (category: string) => ipcRenderer.send("app:report-error", category),
     openDiagnostics: () => ipcRenderer.invoke("app:open-diagnostics"),

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 
-export function installMenu(newWindow: () => void) {
-  const send = (action: string) => BrowserWindow.getFocusedWindow()?.webContents.send("app:menu", action);
+export function installMenu(newWindow: () => void, openChatGPT: () => void, routeChatGPT: (action: string) => boolean) {
+  const send = (action: string) => { if (!routeChatGPT(action)) BrowserWindow.getFocusedWindow()?.webContents.send("app:menu", action); };
   const template: MenuItemConstructorOptions[] = [
     { label: "File", submenu: [
       { label: "New Window", click: newWindow },
@@ -16,7 +16,17 @@ export function installMenu(newWindow: () => void) {
       { role: "quit", label: "Quit Lodex", accelerator: "CmdOrCtrl+Q" },
     ] },
     { role: "editMenu" },
-    { role: "viewMenu" },
+    { label: "View", submenu: [
+      { label: "Reload", accelerator: "CmdOrCtrl+R", click: () => { if (!routeChatGPT("reload")) BrowserWindow.getFocusedWindow()?.webContents.reload(); } },
+      { role: "toggleDevTools" },
+      { type: "separator" },
+      { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" },
+      { type: "separator" }, { role: "togglefullscreen" },
+    ] },
+    { label: "Workspace", submenu: [
+      { label: "Open ChatGPT", accelerator: "CmdOrCtrl+Shift+G", click: openChatGPT },
+      { label: "Local workspace", click: () => send("local-workspace") },
+    ] },
     { label: "Help", submenu: [
       { label: `Lodex ${app.getVersion()}`, enabled: false },
       { label: "About Lodex", click: () => send("about") },

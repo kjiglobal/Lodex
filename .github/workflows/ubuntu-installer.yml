@@ -58,7 +58,7 @@ jobs:
         run: bash scripts/verify-ubuntu-package.sh
       - name: Verify native desktop controls
         if: inputs.verify_run == ''
-        run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test tests/desktop.test.cjs
+        run: LODEX_TEST_EXECUTABLE=/usr/bin/lodex xvfb-run -a node --test --test-concurrency=1 tests/desktop.test.cjs tests/chatgpt-desktop.test.cjs
       - name: Verify the Ubuntu update installer
         if: inputs.verify_run == ''
         run: |

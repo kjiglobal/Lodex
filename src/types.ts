@@ -190,6 +190,7 @@ export type LodexApi = {
     onChange(callback: (state: UpdateState) => void): () => void;
   };
   app: {
+    openChatGPT(): Promise<void>;
     onMenu(callback: (action: string) => void): () => void;
     reportError(category: string): void;
     openDiagnostics(): Promise<void>;

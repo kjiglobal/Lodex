@@ -70,6 +70,7 @@ async function setup(page: Page) {
     let value = { status: "idle", currentVersion: "0.4.1", latestVersion: "0.5.0", canInstall: true, message: "Check for the latest stable Lodex release." };
     const set = (next: any) => { value = { ...value, ...next }; for (const listener of listeners) listener(value); return value; };
     w.__updateState = set;
+    w.lodex.app.openChatGPT = async () => { w.__openedChatGPT = (w.__openedChatGPT || 0) + 1; };
     w.lodex.updates = {
       state: async () => value,
       onChange: (fn: any) => { listeners.add(fn); return () => listeners.delete(fn); },
@@ -139,6 +140,18 @@ async function start(page: Page) {
   await page.getByTitle("Send message", { exact: true }).click();
   await expect(page.getByTitle("Stop response")).toBeVisible();
 }
+
+test("official ChatGPT opens without disrupting a native draft or active turn", async ({ page }) => {
+  await setup(page);
+  const input = page.getByRole("textbox", { name: "Message Lodex" });
+  await input.fill("Keep this local draft");
+  await page.getByTitle("Open official ChatGPT").click();
+  await expect(input).toHaveValue("Keep this local draft");
+  await start(page);
+  await page.getByTitle("Open official ChatGPT").click();
+  await expect(page.getByTitle("Stop response")).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__openedChatGPT)).toBe(2);
+});
 
 test("file-change objects and mixed streamed activity never blank the window", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));

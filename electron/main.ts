@@ -8,6 +8,7 @@ import { installMenu } from "./menu";
 import { accessMode, sandboxMode, sandboxPolicy } from "./access";
 import { UpdateService } from "./updates";
 import { installUbuntuUpdate, supportsPackageUpdates } from "./update-installer";
+import { ChatGPTWorkspace } from "./chatgpt-window";
 
 // Software rendering avoids blank surfaces on Linux drivers after suspend.
 // Keep an opt-in for machines whose GPU is known to work well with Electron.
@@ -34,6 +35,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 let updates: UpdateService;
+let chatgpt: ChatGPTWorkspace;
 type WindowSession = { workspace: WorkspaceService; codex: CodexClient };
 const sessions = new Map<number, WindowSession>();
 function sessionFor(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): WindowSession {
@@ -111,7 +113,7 @@ async function createWindow(): Promise<void> {
   window.on("closed", () => {
     codex.stop(); sessions.delete(windowId);
     void workspace.clearTemporaryImages();
-    if (mainWindow === window) mainWindow = BrowserWindow.getAllWindows()[0] || null;
+    if (mainWindow === window) mainWindow = BrowserWindow.getAllWindows().find(candidate => sessions.has(candidate.webContents.id)) || null;
   });
   void codex.start().catch(() => undefined);
   let recoveryAttempts = 0;
@@ -201,6 +203,7 @@ async function createWindow(): Promise<void> {
 }
 
 function registerIpc(): void {
+  ipcMain.handle("app:open-chatgpt", event => { sessionFor(event); chatgpt.open(); });
   ipcMain.handle("updates:state", event => { sessionFor(event); return updates.snapshot(); });
   ipcMain.handle("updates:check", event => { sessionFor(event); return updates.check(); });
   ipcMain.handle("updates:download", event => { sessionFor(event); return updates.download(); });
@@ -215,17 +218,20 @@ function registerIpc(): void {
     if (updates.snapshot().status !== "installed") throw new Error("Install an update before restarting.");
     app.relaunch(); app.quit();
   });
-  ipcMain.handle("app:info", () => ({ version: app.getVersion(), softwareRendering }));
+  ipcMain.handle("app:info", event => { sessionFor(event); return { version: app.getVersion(), softwareRendering }; });
   ipcMain.on("app:report-error", (_event, category: unknown) => {
+    if (!sessions.has(_event.sender.id) || _event.senderFrame !== _event.sender.mainFrame) return;
     if (typeof category === "string" && /^[a-z-]{1,80}$/.test(category)) recordDiagnostic(category);
   });
-  ipcMain.handle("app:open-diagnostics", async () => {
+  ipcMain.handle("app:open-diagnostics", async event => {
+    sessionFor(event);
     recordDiagnostic(`lodex-${app.getVersion()}:software-rendering-${softwareRendering}`);
     await diagnosticWrites;
     const error = await shell.openPath(path.join(app.getPath("userData"), "diagnostics.log"));
     if (error) throw new Error(error);
   });
   ipcMain.handle("app:export-chat", async (_event, title: unknown, content: unknown) => {
+    sessionFor(_event);
     if (typeof title !== "string" || typeof content !== "string" || content.length > 10_000_000) throw new Error("Invalid chat export.");
     const result = await dialog.showSaveDialog({
       title: "Export chat", defaultPath: `${title.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80) || "Lodex chat"}.md`,
@@ -371,8 +377,20 @@ app.whenReady().then(async () => {
     callback(permission === "media" && sessions.has(contents.id) && details.isMainFrame && "mediaTypes" in details && details.mediaTypes?.every(type => type === "audio") === true);
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => permission === "media" && details.mediaType === "audio" && !!contents && sessions.has(contents.id));
+  chatgpt = new ChatGPTWorkspace(action => {
+    const focus = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.show(); mainWindow.focus();
+      if (action) mainWindow.webContents.send("app:menu", action);
+    };
+    if (!mainWindow || mainWindow.isDestroyed()) void createWindow().then(() => {
+      if (mainWindow?.webContents.isLoading()) mainWindow.webContents.once("did-finish-load", focus);
+      else focus();
+    });
+    else focus();
+  });
   registerIpc();
-  installMenu(() => { void createWindow(); });
+  installMenu(() => { void createWindow(); }, () => chatgpt.open(), action => chatgpt.handlesMenu(action));
   await createWindow();
 
   app.on("activate", () => {

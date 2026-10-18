@@ -18,6 +18,7 @@ import {
   Search,
   Sun,
   Settings,
+  Globe,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Account, AccountUsage, RateLimits, SurfaceMode, Thread } from "../types";
@@ -44,6 +45,7 @@ type Props = {
   onArchive(thread: Thread): void;
   onOpenWorkspace(): void;
   onOpenTools(): void;
+  onOpenChatGPT(): void;
   onSignIn(): void;
   onLogout(): void;
   onSettings(): void;
@@ -124,6 +126,7 @@ export function Sidebar({
   onArchive,
   onOpenWorkspace,
   onOpenTools,
+  onOpenChatGPT,
   onSignIn,
   onLogout,
   onSettings,
@@ -166,6 +169,7 @@ export function Sidebar({
         <LodexLogo className="brand-mark small" alt="Lodex" />
         <button className="icon-button" onClick={onToggle} title="Open sidebar"><MessageSquare size={19} /></button>
         <button className="icon-button" disabled={busy} onClick={onNew} title="New chat"><PenLine size={19} /></button>
+        <button className="icon-button" onClick={onOpenChatGPT} title="Open official ChatGPT"><Globe size={19} /></button>
         <button className="icon-button" onClick={onSettings} title="Settings"><Settings size={19} /></button>
         <button className="icon-button sidebar-bottom-action" onClick={onToggleTheme} title={`Use ${theme === "light" ? "dark" : "light"} mode`}>
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
@@ -212,6 +216,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-nav">
+        <button className="chatgpt-launch" onClick={onOpenChatGPT} title="Open official ChatGPT"><Globe size={18} /><span>ChatGPT web<small>Your ChatGPT history and tools</small></span></button>
         <button className="workspace-button" disabled={busy} onClick={onOpenWorkspace} title={workspace ?? undefined}>
           <FolderGit2 size={16} /><span>{workspace ? shortPath(workspace) : "Open folder"}</span><ChevronDown size={15} />
         </button>

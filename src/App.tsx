@@ -798,6 +798,7 @@ export default function App() {
         onArchive={(thread) => void archiveThread(thread)}
         onOpenWorkspace={() => void openWorkspace()}
         onOpenTools={openTools}
+        onOpenChatGPT={() => void window.lodex.app.openChatGPT().catch(() => setError("Unable to open ChatGPT. Please try again."))}
         onSignIn={() => void signIn()}
         onLogout={() => void logout()}
         onSettings={() => setSettingsVisible(true)}

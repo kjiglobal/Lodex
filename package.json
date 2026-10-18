@@ -1,6 +1,6 @@
 {
   "name": "lodex",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "description": "A native Linux workspace for ChatGPT and Codex workflows.",
   "homepage": "https://github.com/kjiglobal/Lodex",
@@ -19,7 +19,7 @@
     "dist:ubuntu": "bash scripts/build-linux.sh deb",
     "generate:icon": "node scripts/generate-icon.cjs",
     "start": "electron .",
-    "test": "node --test tests/client.test.cjs tests/updates.test.cjs && playwright test",
+    "test": "node --test tests/client.test.cjs tests/updates.test.cjs tests/chatgpt.test.cjs && playwright test",
     "preview:test": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
   },
   "dependencies": {
@@ -41,9 +41,9 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
-    "concurrently": "10.0.4",
+    "concurrently": "10.0.6",
     "cross-env": "10.1.0",
-    "electron": "43.3.0",
+    "electron": "43.8.0",
     "electron-builder": "26.15.3",
     "sharp": "0.35.4",
     "typescript": "7.0.2",
@@ -51,7 +51,7 @@
     "wait-on": "9.0.1"
   },
   "overrides": {
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "nanoid": "3.3.18",
     "@huggingface/transformers": {
       "sharp": "0.35.4"

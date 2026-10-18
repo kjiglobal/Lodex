@@ -2,7 +2,20 @@
 
 <img src="src/assets/lodex-logo.png" alt="Lodex logo" width="96" />
 
-Lodex is a native Linux desktop workspace that combines a ChatGPT-style conversation experience with Codex-style project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for authentication, agent turns, approvals, models, and terminal sessions.
+Lodex is a Linux desktop workspace for the official ChatGPT website and native Codex project tools. It uses Electron for the desktop shell and the official open-source Codex app-server for local authentication, agent turns, approvals, models, and terminal sessions.
+
+## New in the 0.5.0 source build
+
+Choose **ChatGPT web** in the sidebar, **Workspace → Open ChatGPT**, or **Ctrl+Shift+G** to open the official ChatGPT website in a dedicated Lodex window. This uses the current website directly, so models and web features follow your account rather than a fixed imitation of ChatGPT’s controls. Your native drafts, running tasks, editor and terminal stay in their original window.
+
+- Sign in directly on the website. This session persists between launches and is separate from Codex and your system browser.
+- Use your ChatGPT cloud history and whichever projects, search, research, image, file, Canvas and connected-app tools your account offers on the web.
+- Navigate back, forward and home, reload, open the current chat in your browser, or return to **Local workspace**.
+- Upload files using the website’s file picker; save generated files through a native Save dialog. Downloads are never opened automatically.
+- Allow microphone, camera, notifications or clipboard access when prompted. Screen capture requires choosing a screen/window for each request. These permissions enable browser features; they do not add desktop-only ChatGPT Voice or computer control.
+- Use **Clear ChatGPT session** to remove Lodex’s web cookies/cache and revoke session permissions without deleting cloud chats or signing out of Codex.
+
+Some identity providers or features may reject embedded browsers. **Open ChatGPT in browser** is the fallback; browser sessions remain separate. No ChatGPT API key is needed. Lodex does not unlock paid features, transfer Codex credentials to the website, or reproduce proprietary desktop services. See the [capability coverage and limits](docs/CHATGPT-CAPABILITIES.md) and [0.5.0 changes](docs/RELEASE-0.5.0.md). The published installer below remains 0.4.2 until a new release is published.
 
 ## Lodex 0.4.2 capabilities
 
@@ -137,6 +150,6 @@ The shared logo source is `src/assets/lodex-logo.png`. Run `npm run generate:ico
 
 ## Scope and compatibility
 
-Lodex 0.4 covers chat, goals, plans, activity, apps/skills discovery, editing, terminal, files, images, Git, and local voice typing. It is not a redistribution of the proprietary ChatGPT or Codex desktop applications. Live voice conversations, screen sharing, Canvas, full browser/computer control, and ChatGPT web history synchronization are not implemented.
+The native workspace covers chat, goals, plans, activity, apps/skills discovery, editing, terminal, files, images, Git, and local voice typing. Version 0.5.0 adds an isolated window for the official ChatGPT website and its account-available web capabilities. Website chats and native Codex threads remain separate. Lodex is not a redistribution of the proprietary ChatGPT or Codex desktop applications and does not provide complete desktop feature parity. See the [capability matrix](docs/CHATGPT-CAPABILITIES.md) for platform and integration limits.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the security model and implementation map. The integration follows the official [Codex app-server](https://learn.chatgpt.com/docs/app-server) and [authentication](https://learn.chatgpt.com/docs/authentication) documentation.

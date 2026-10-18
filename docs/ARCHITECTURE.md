@@ -36,6 +36,9 @@ Models are discovered at runtime instead of being maintained as a stale hard-cod
 
 ## Product surfaces
 
+- **ChatGPT web** opens the official website in a separate `WebContentsView` with the persistent `persist:lodex-chatgpt` session. It shares neither the native renderer preload nor Codex credentials. The local toolbar uses `chatgpt-preload.ts`, which exposes only fixed navigation/session actions and pending screen-source selection. Each IPC call validates the toolbar web contents and main frame. The remote view has no preload, Node integration or webview support; sandbox, context isolation and web security remain enabled. `chatgpt-policy.ts` validates exact HTTPS ChatGPT/login hosts, with other HTTP(S) links routed to the system browser. Authentication popups inherit the isolated session and no local bridge. View web contents and login popups are explicitly closed with their owning window.
+- Web permissions are restricted to the focused ChatGPT main frame. Microphone, camera, notifications and clipboard reads prompt before use; device permissions are denied. Grants expire with the window. Screen capture requires a user gesture and a source picker for every request, and is canceled when navigating or closing. Downloads retain Electron’s Save dialog and never auto-open. Confirmed session clearing removes web storage/cache independently of the local workspace. The [capability matrix](CHATGPT-CAPABILITIES.md) documents account and platform limits.
+
 - **ChatGPT / Chat** starts a conversation without assigning a project directory and uses a read-only sandbox.
 - **ChatGPT / Work** adds goal and activity affordances while retaining the selected project as optional context.
 - **Codex** binds turns to the selected project and exposes files, Git, and the terminal. Internally this remains the `build` surface for app-server compatibility.
